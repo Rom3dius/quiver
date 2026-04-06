@@ -1,44 +1,50 @@
-precommit := `pre-commit install`
+# Use the project venv for all Python commands
+python := ".venv/bin/python"
+pip := ".venv/bin/pip"
+pytest := ".venv/bin/pytest"
 
 default:
   just -l
-  echo "{{precommit}}"
 
 # Install in editable mode with dev deps
 install:
-    pip install -e ".[dev]"
+    {{pip}} install -e ".[dev]"
+
+# Set up pre-commit hooks
+setup-hooks:
+    pre-commit install
 
 # Initialize or reset the database
 init-db:
-    python scripts/init_db.py
+    {{python}} scripts/init_db.py
 
 # Run all processes (bot + web)
 run:
-    python scripts/run_all.py
+    {{python}} scripts/run_all.py
 
 # Run the Discord bot only
 bot:
-    python scripts/run_bot.py
+    {{python}} scripts/run_bot.py
 
 # Run the Flask web app only
 web:
-    python scripts/run_web.py
+    {{python}} scripts/run_web.py
 
 # Run all tests
 test:
-    pytest
+    {{pytest}}
 
 # Run a specific test file
 test-file file:
-    pytest {{file}}
+    {{pytest}} {{file}}
 
 # Run tests matching a name pattern
 test-match pattern:
-    pytest -k {{pattern}}
+    {{pytest}} -k {{pattern}}
 
 # Run tests with coverage
 test-cov:
-    pytest --cov=quiver --cov-report=term-missing
+    {{pytest}} --cov=quiver --cov-report=term-missing
 
 # Format code
 fmt:
