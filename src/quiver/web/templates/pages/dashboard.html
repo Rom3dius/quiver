@@ -4,7 +4,7 @@
 {% block content %}
 <h1>Command &amp; Control Dashboard</h1>
 
-<div hx-get="{{ url_for('dashboard.bot_status_partial') }}" hx-trigger="every 5s" hx-swap="innerHTML" style="margin-bottom:1rem;">
+<div class="bot-status-wrapper" hx-get="{{ url_for('dashboard.bot_status_partial') }}" hx-trigger="every 5s" hx-swap="innerHTML">
     {% include "partials/bot_status.html" %}
 </div>
 

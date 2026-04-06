@@ -1,5 +1,5 @@
 <div class="request-card" id="request-card-{{ req.id }}">
-    <div style="display:flex;justify-content:space-between;align-items:start;">
+    <div class="flex-between">
         <div>
             <strong>{{ teams_by_id.get(req.team_id).name if teams_by_id.get(req.team_id) else 'Unknown' }}</strong>
             <span class="timestamp">{{ req.created_at.strftime('%H:%M:%S') }}</span>
@@ -10,11 +10,11 @@
     <p>{{ req.content }}</p>
     <form hx-post="{{ url_for('requests.resolve', request_id=req.id) }}" hx-target="#request-card-{{ req.id }}" hx-swap="outerHTML" hx-encoding="multipart/form-data">
         <textarea name="response" placeholder="Response to team (optional)..." rows="2"></textarea>
-        <label style="font-size:0.85rem;">
+        <label class="attach-label">
             Attach files
-            <input type="file" name="attachments" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx" style="margin-top:0.25rem;">
+            <input type="file" name="attachments" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx">
         </label>
-        <div style="display:flex;gap:0.5rem;">
+        <div class="flex-row">
             <button type="submit" name="status" value="approved" class="outline">Approve</button>
             <button type="submit" name="status" value="denied" class="outline secondary">Deny</button>
         </div>

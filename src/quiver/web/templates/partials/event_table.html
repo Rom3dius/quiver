@@ -1,6 +1,6 @@
 {% for event in events %}
 <tr id="event-row-{{ event.id }}">
-    <td style="text-align:center;font-size:1.2rem;">{{ event.icon }}</td>
+    <td class="icon-col">{{ event.icon }}</td>
     <td class="timestamp">{{ event.created_at.strftime('%H:%M:%S') }}</td>
     <td><span class="event-label">{{ event.label }}</span></td>
     <td>{% if event.team_name %}<strong>{{ event.team_name }}</strong>{% else %}—{% endif %}</td>

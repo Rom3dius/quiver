@@ -20,9 +20,9 @@
             <td><strong>{{ item.team.name }}</strong></td>
             <td>
                 {% if item.channel_configured %}
-                <span style="color:#5cb85c;">Configured</span>
+                <span class="channel-configured">Configured</span>
                 {% else %}
-                <span style="color:#d9534f;">Not configured</span>
+                <span class="channel-missing">Not configured</span>
                 {% endif %}
             </td>
             <td>{{ item.request_count }}</td>

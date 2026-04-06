@@ -1,8 +1,8 @@
 {% if bot_status.online %}
-<span style="color:#5cb85c;">&#9679; Bot Online</span>
+<span class="status-online">&#9679; Bot Online</span>
 <small class="timestamp">({{ bot_status.guild_count }} server{{ 's' if bot_status.guild_count != 1 else '' }}, last beat {{ bot_status.age_seconds }}s ago)</small>
 {% else %}
-<span style="color:#d9534f;">&#9679; Bot Offline</span>
+<span class="status-offline">&#9679; Bot Offline</span>
 {% if bot_status.last_beat %}
 <small class="timestamp">(last seen {{ bot_status.age_seconds }}s ago)</small>
 {% else %}

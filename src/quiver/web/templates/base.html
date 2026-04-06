@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Quiver C2{% endblock %}</title>
+    <script>
+    (function(){var t=localStorage.getItem('quiver-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/idiomorph@0.3.0/dist/idiomorph-ext.min.js"></script>
@@ -20,13 +26,30 @@
             <li><a href="{{ url_for('requests.request_page') }}">Requests</a></li>
             <li><a href="{{ url_for('game_log.log_page') }}">Game Log</a></li>
             <li><a href="{{ url_for('teams.teams_page') }}">Teams</a></li>
+            <li>
+                <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme"></button>
+            </li>
         </ul>
     </nav>
     <main class="container">
         {% block content %}{% endblock %}
     </main>
     <footer class="container">
-        <small>Quiver Intelligence Wargame &mdash; Command &amp; Control Dashboard</small>
+        <small>Quiver &mdash; Command &amp; Control Dashboard</small>
     </footer>
+    <script>
+    (function(){
+        var btn=document.getElementById('theme-toggle');
+        function getTheme(){return document.documentElement.getAttribute('data-theme');}
+        function setIcon(){btn.textContent=getTheme()==='dark'?'\u2600\uFE0F':'\uD83C\uDF19';}
+        setIcon();
+        btn.addEventListener('click',function(){
+            var next=getTheme()==='dark'?'light':'dark';
+            document.documentElement.setAttribute('data-theme',next);
+            localStorage.setItem('quiver-theme',next);
+            setIcon();
+        });
+    })();
+    </script>
 </body>
 </html>
