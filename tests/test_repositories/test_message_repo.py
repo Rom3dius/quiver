@@ -1,38 +1,34 @@
 """Tests for inter-team message repository."""
 
-from quiver.repositories import message_repo, team_repo
+from quiver.repositories import message_repo
 
 
-def test_create_message(conn):
-    cia = team_repo.get_by_name(conn, "CIA")
-    mi6 = team_repo.get_by_name(conn, "MI6")
+def test_create_message(conn, teams):
+    team_a = teams[0]
+    team_b = teams[1]
 
-    msg = message_repo.create(conn, cia.id, mi6.id, "Intel to share")
-    assert msg.from_team_id == cia.id
-    assert msg.to_team_id == mi6.id
+    msg = message_repo.create(conn, team_a.id, team_b.id, "Intel to share")
+    assert msg.from_team_id == team_a.id
+    assert msg.to_team_id == team_b.id
     assert msg.content == "Intel to share"
 
 
-def test_get_all(conn):
-    cia = team_repo.get_by_name(conn, "CIA")
-    mi6 = team_repo.get_by_name(conn, "MI6")
-    bnd = team_repo.get_by_name(conn, "BND")
+def test_get_all(conn, teams):
+    team_a, team_b, team_c = teams[0], teams[1], teams[2]
 
-    message_repo.create(conn, cia.id, mi6.id, "Message 1")
-    message_repo.create(conn, mi6.id, bnd.id, "Message 2")
+    message_repo.create(conn, team_a.id, team_b.id, "Message 1")
+    message_repo.create(conn, team_b.id, team_c.id, "Message 2")
 
     messages = message_repo.get_all(conn)
     assert len(messages) == 2
 
 
-def test_get_by_team(conn):
-    cia = team_repo.get_by_name(conn, "CIA")
-    mi6 = team_repo.get_by_name(conn, "MI6")
-    bnd = team_repo.get_by_name(conn, "BND")
+def test_get_by_team(conn, teams):
+    team_a, team_b, team_c = teams[0], teams[1], teams[2]
 
-    message_repo.create(conn, cia.id, mi6.id, "To MI6")
-    message_repo.create(conn, bnd.id, cia.id, "From BND to CIA")
-    message_repo.create(conn, mi6.id, bnd.id, "MI6 to BND (not CIA)")
+    message_repo.create(conn, team_a.id, team_b.id, "To B")
+    message_repo.create(conn, team_c.id, team_a.id, "From C to A")
+    message_repo.create(conn, team_b.id, team_c.id, "B to C (not A)")
 
-    cia_messages = message_repo.get_by_team(conn, cia.id)
-    assert len(cia_messages) == 2  # sent one, received one
+    team_a_messages = message_repo.get_by_team(conn, team_a.id)
+    assert len(team_a_messages) == 2  # sent one, received one

@@ -12,6 +12,7 @@ from quiver.bot.embeds import error_embed, request_received_embed
 from quiver.bot.utils import get_db_path, get_team_by_channel
 from quiver.db.connection import get_connection
 from quiver.services import request_service
+from quiver.validation import MAX_REQUEST_CONTENT
 
 logger = logging.getLogger("quiver.bot.intel_requests")
 
@@ -26,6 +27,18 @@ class IntelRequests(commands.Cog):
         self, channel_id: int, message_id: str | None, content: str
     ) -> tuple[discord.Embed, bool]:
         """Shared logic for prefix and slash commands. Returns (embed, success)."""
+        if not content.strip():
+            return error_embed("Request content cannot be empty."), False
+
+        if len(content) > MAX_REQUEST_CONTENT:
+            return (
+                error_embed(
+                    f"Request too long ({len(content)} chars, "
+                    f"max {MAX_REQUEST_CONTENT})."
+                ),
+                False,
+            )
+
         conn = get_connection(get_db_path(self.bot))
         try:
             team = get_team_by_channel(conn, channel_id)
@@ -67,7 +80,9 @@ class IntelRequests(commands.Cog):
     )
     @app_commands.describe(content="Your intel request — what do you need?")
     async def slash_request(
-        self, interaction: discord.Interaction, content: str
+        self,
+        interaction: discord.Interaction,
+        content: app_commands.Range[str, 1, MAX_REQUEST_CONTENT],
     ) -> None:
         embed, success = await self._handle_request(
             interaction.channel_id, None, content

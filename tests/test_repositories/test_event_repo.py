@@ -2,11 +2,11 @@
 
 import json
 
-from quiver.repositories import event_repo, team_repo
+from quiver.repositories import event_repo
 
 
-def test_log_event(conn):
-    team = team_repo.get_by_name(conn, "CIA")
+def test_log_event(conn, teams):
+    team = teams[0]
     event = event_repo.log(conn, "inject_sent", team.id, {"inject_id": 1})
     assert event.event_type == "inject_sent"
     assert event.team_id == team.id
@@ -23,13 +23,13 @@ def test_log_event_without_team(conn):
     assert event.team_id is None
 
 
-def test_get_all_with_filters(conn):
-    cia = team_repo.get_by_name(conn, "CIA")
-    mi6 = team_repo.get_by_name(conn, "MI6")
+def test_get_all_with_filters(conn, teams):
+    team_a = teams[0]
+    team_b = teams[1]
 
-    event_repo.log(conn, "inject_sent", cia.id)
-    event_repo.log(conn, "request_created", mi6.id)
-    event_repo.log(conn, "inject_sent", mi6.id)
+    event_repo.log(conn, "inject_sent", team_a.id)
+    event_repo.log(conn, "request_created", team_b.id)
+    event_repo.log(conn, "inject_sent", team_b.id)
 
     all_events = event_repo.get_all(conn)
     assert len(all_events) == 3
@@ -37,15 +37,15 @@ def test_get_all_with_filters(conn):
     inject_events = event_repo.get_all(conn, event_type="inject_sent")
     assert len(inject_events) == 2
 
-    cia_events = event_repo.get_all(conn, team_id=cia.id)
-    assert len(cia_events) == 1
+    team_a_events = event_repo.get_all(conn, team_id=team_a.id)
+    assert len(team_a_events) == 1
 
 
-def test_count(conn):
-    cia = team_repo.get_by_name(conn, "CIA")
-    event_repo.log(conn, "inject_sent", cia.id)
-    event_repo.log(conn, "inject_sent", cia.id)
-    event_repo.log(conn, "request_created", cia.id)
+def test_count(conn, teams):
+    team = teams[0]
+    event_repo.log(conn, "inject_sent", team.id)
+    event_repo.log(conn, "inject_sent", team.id)
+    event_repo.log(conn, "request_created", team.id)
 
     assert event_repo.count(conn) == 3
     assert event_repo.count(conn, event_type="inject_sent") == 2

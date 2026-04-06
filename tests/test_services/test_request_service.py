@@ -1,11 +1,11 @@
 """Tests for request service."""
 
-from quiver.repositories import event_repo, team_repo
+from quiver.repositories import event_repo
 from quiver.services import request_service
 
 
-def test_create_request_logs_event(conn):
-    team = team_repo.get_by_name(conn, "CIA")
+def test_create_request_logs_event(conn, teams):
+    team = teams[0]
     req = request_service.create_request(conn, team.id, "Need HUMINT on target")
 
     assert req.status == "pending"
@@ -13,8 +13,8 @@ def test_create_request_logs_event(conn):
     assert len(events) == 1
 
 
-def test_resolve_request_logs_event(conn):
-    team = team_repo.get_by_name(conn, "MI6")
+def test_resolve_request_logs_event(conn, teams):
+    team = teams[1]
     req = request_service.create_request(conn, team.id, "Satellite pass requested")
 
     resolved = request_service.resolve_request(
@@ -27,8 +27,8 @@ def test_resolve_request_logs_event(conn):
     assert len(events) == 1
 
 
-def test_mark_response_delivered_logs_event(conn):
-    team = team_repo.get_by_name(conn, "BND")
+def test_mark_response_delivered_logs_event(conn, teams):
+    team = teams[2] if len(teams) > 2 else teams[0]
     req = request_service.create_request(conn, team.id, "Request")
     request_service.resolve_request(conn, req.id, "denied", "Denied")
 

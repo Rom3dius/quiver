@@ -6,9 +6,12 @@ import json
 from pathlib import Path
 
 from flask import Blueprint, current_app, g, render_template, request
+from markupsafe import escape
 
 from quiver.repositories import request_repo, team_repo
 from quiver.services import request_service, upload_service
+from quiver.validation import MAX_RESPONSE_TEXT
+from quiver.web.app import limiter
 
 bp = Blueprint("requests", __name__, url_prefix="/requests")
 
@@ -101,17 +104,23 @@ def all_partial() -> str:
 
 
 @bp.route("/<int:request_id>/resolve", methods=["POST"])
+@limiter.limit("30 per minute")
 def resolve(request_id: int) -> str:
     """Approve or deny a request, optionally with file attachments."""
     status = request.form.get("status", "").strip()
     response = request.form.get("response", "").strip() or None
 
     if status not in ("approved", "denied"):
-        return '<div class="flash-success" style="border-color:#d9534f;background:#4a2d2d;">Invalid status.</div>'
+        return _error_html("Invalid status.")
+
+    if response is not None and len(response) > MAX_RESPONSE_TEXT:
+        return _error_html(
+            f"Response too long ({len(response)} chars, max {MAX_RESPONSE_TEXT})."
+        )
 
     result = request_service.resolve_request(g.db, request_id, status, response)
     if result is None:
-        return '<div class="flash-success" style="border-color:#d9534f;background:#4a2d2d;">Request not found.</div>'
+        return _error_html("Request not found.")
 
     # Handle file uploads
     files = request.files.getlist("attachments")
@@ -121,16 +130,25 @@ def resolve(request_id: int) -> str:
     )
 
     teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
-    team_name = teams_by_id.get(result.team_id, None)
-    team_name = team_name.name if team_name else "Unknown"
+    team = teams_by_id.get(result.team_id)
+    team_name = team.name if team else "Unknown"
 
     status_label = "APPROVED" if status == "approved" else "DENIED"
     badge_class = "approved" if status == "approved" else "denied"
     file_note = f" + {len(attachments)} file(s)" if attachments else ""
+    border_colour = "#5cb85c" if status == "approved" else "#d9534f"
     return (
         f'<div class="request-resolved-notice" style="padding:0.5rem 1rem;margin-bottom:0.5rem;'
-        f'border-left:4px solid {"#5cb85c" if status == "approved" else "#d9534f"};opacity:0.8;">'
+        f'border-left:4px solid {border_colour};opacity:0.8;">'
         f'<span class="status-badge {badge_class}">{status_label}</span> '
-        f"Request #{request_id} from <strong>{team_name}</strong>{file_note}"
+        f"Request #{request_id} from <strong>{escape(team_name)}</strong>{escape(file_note)}"
         f"</div>"
+    )
+
+
+def _error_html(message: str) -> str:
+    """Return an inline error div for HTMX responses."""
+    return (
+        f'<div class="flash-success" style="border-color:#d9534f;background:#4a2d2d;">'
+        f"{escape(message)}</div>"
     )

@@ -2,44 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from quiver.config import Config
-from quiver.db.connection import get_connection
-from quiver.repositories import team_repo
 from quiver.services import inject_service, request_service
-from quiver.web.app import create_app
-
-
-@pytest.fixture
-def app(tmp_path):
-    db_path = tmp_path / "test.db"
-    config = Config(
-        discord_token="test-token",
-        bot_command_prefix="!",
-        database_path=db_path,
-        uploads_path=tmp_path / "uploads",
-        flask_host="127.0.0.1",
-        flask_port=5000,
-    )
-    config.uploads_path.mkdir(exist_ok=True)
-    app = create_app(config)
-    app.config["TESTING"] = True
-    return app
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
-
-
-@pytest.fixture
-def seeded_db(app):
-    """Return a connection to the seeded test DB."""
-    conn = get_connection(app.config["DATABASE_PATH"])
-    yield conn
-    conn.close()
-
 
 # --- Dashboard ---
 
@@ -60,16 +23,16 @@ def test_health_check(client):
 # --- Injects ---
 
 
-def test_inject_page_loads(client):
+def test_inject_page_loads(client, web_teams):
     resp = client.get("/injects/")
     assert resp.status_code == 200
     assert b"Inject Composer" in resp.data
-    assert b"CIA" in resp.data  # Team checkboxes
+    # At least one team checkbox should be rendered
+    assert web_teams[0].name.encode() in resp.data
 
 
-def test_create_inject(client, seeded_db):
-    teams = team_repo.get_all(seeded_db)
-    team_ids = [teams[0].id, teams[1].id]
+def test_create_inject(client, seeded_db, web_teams):
+    team_ids = [web_teams[0].id, web_teams[1].id]
 
     resp = client.post(
         "/injects/",
@@ -106,9 +69,8 @@ def test_create_inject_no_teams(client):
     assert b"Select at least one" in resp.data
 
 
-def test_inject_history_partial(client, seeded_db):
-    teams = team_repo.get_all(seeded_db)
-    inject_service.send_inject(seeded_db, "Test inject", [teams[0].id])
+def test_inject_history_partial(client, seeded_db, web_teams):
+    inject_service.send_inject(seeded_db, "Test inject", [web_teams[0].id])
 
     resp = client.get("/injects/history")
     assert resp.status_code == 200
@@ -124,18 +86,18 @@ def test_request_page_loads(client):
     assert b"Intel Request Queue" in resp.data
 
 
-def test_request_queue_partial(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "CIA")
+def test_request_queue_partial(client, seeded_db, web_teams):
+    team = web_teams[0]
     request_service.create_request(seeded_db, team.id, "Need satellite imagery")
 
     resp = client.get("/requests/queue")
     assert resp.status_code == 200
     assert b"satellite imagery" in resp.data
-    assert b"CIA" in resp.data
+    assert team.name.encode() in resp.data
 
 
-def test_resolve_request_approve(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "MI6")
+def test_resolve_request_approve(client, seeded_db, web_teams):
+    team = web_teams[0]
     req = request_service.create_request(seeded_db, team.id, "Agent meeting")
 
     resp = client.post(
@@ -149,8 +111,8 @@ def test_resolve_request_approve(client, seeded_db):
     assert b"APPROVED" in resp.data
 
 
-def test_resolve_request_deny(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "BND")
+def test_resolve_request_deny(client, seeded_db, web_teams):
+    team = web_teams[1]
     req = request_service.create_request(seeded_db, team.id, "Risky operation")
 
     resp = client.post(
@@ -164,8 +126,8 @@ def test_resolve_request_deny(client, seeded_db):
     assert b"DENIED" in resp.data
 
 
-def test_resolve_request_invalid_status(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "CIA")
+def test_resolve_request_invalid_status(client, seeded_db, web_teams):
+    team = web_teams[0]
     req = request_service.create_request(seeded_db, team.id, "Something")
 
     resp = client.post(
@@ -178,8 +140,8 @@ def test_resolve_request_invalid_status(client, seeded_db):
     assert b"Invalid status" in resp.data
 
 
-def test_all_requests_partial(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "CIA")
+def test_all_requests_partial(client, seeded_db, web_teams):
+    team = web_teams[0]
     for i in range(3):
         request_service.create_request(seeded_db, team.id, f"Request {i}")
 
@@ -188,8 +150,8 @@ def test_all_requests_partial(client, seeded_db):
     assert b"Request" in resp.data
 
 
-def test_inject_history_partial_paginated(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "CIA")
+def test_inject_history_partial_paginated(client, seeded_db, web_teams):
+    team = web_teams[0]
     for i in range(3):
         inject_service.send_inject(seeded_db, f"Inject {i}", [team.id])
 
@@ -207,17 +169,16 @@ def test_game_log_page_loads(client):
     assert b"Game Log" in resp.data
 
 
-def test_game_log_with_events(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "CIA")
-    inject_service.send_inject(seeded_db, "Test inject", [team.id])
+def test_game_log_with_events(client, seeded_db, web_teams):
+    inject_service.send_inject(seeded_db, "Test inject", [web_teams[0].id])
 
     resp = client.get("/log/")
     assert resp.status_code == 200
     assert b"inject_sent" in resp.data
 
 
-def test_game_log_filter_by_type(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "CIA")
+def test_game_log_filter_by_type(client, seeded_db, web_teams):
+    team = web_teams[0]
     inject_service.send_inject(seeded_db, "Inject", [team.id])
     request_service.create_request(seeded_db, team.id, "Request")
 
@@ -226,9 +187,8 @@ def test_game_log_filter_by_type(client, seeded_db):
     assert b"inject_sent" in resp.data
 
 
-def test_game_log_partial(client, seeded_db):
-    team = team_repo.get_by_name(seeded_db, "MI6")
-    inject_service.send_inject(seeded_db, "Partial test", [team.id])
+def test_game_log_partial(client, seeded_db, web_teams):
+    inject_service.send_inject(seeded_db, "Partial test", [web_teams[0].id])
 
     resp = client.get("/log/partial?limit=5")
     assert resp.status_code == 200
@@ -237,12 +197,13 @@ def test_game_log_partial(client, seeded_db):
 # --- Teams ---
 
 
-def test_teams_page_loads(client):
+def test_teams_page_loads(client, web_teams):
     resp = client.get("/teams/")
     assert resp.status_code == 200
     assert b"Team Overview" in resp.data
-    assert b"CIA" in resp.data
-    assert b"MI6" in resp.data
+    # All seeded teams should appear
+    for team in web_teams:
+        assert team.name.encode() in resp.data
 
 
 def test_teams_show_channel_status(client):

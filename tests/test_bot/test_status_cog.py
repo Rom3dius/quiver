@@ -42,10 +42,11 @@ def _make_ctx(channel_id: int) -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_status_known_team(cog, db_path):
+async def test_status_known_team(cog, db_path, teams):
+    first_team = teams[0]
     conn = get_connection(db_path)
     try:
-        team = team_repo.get_by_name(conn, "CIA")
+        team = team_repo.get_by_name(conn, first_team.name)
         team_repo.update_channel_id(conn, team.id, "100")
     finally:
         conn.close()
@@ -56,7 +57,7 @@ async def test_status_known_team(cog, db_path):
     ctx.send.assert_called_once()
     embed = ctx.send.call_args[1]["embed"]
     assert isinstance(embed, discord.Embed)
-    assert "CIA" in embed.title
+    assert first_team.name in embed.title
 
 
 @pytest.mark.asyncio
@@ -70,11 +71,12 @@ async def test_status_unknown_channel(cog, db_path):
 
 
 @pytest.mark.asyncio
-async def test_list_teams(cog, db_path):
+async def test_list_teams(cog, db_path, teams):
     ctx = _make_ctx(channel_id=100)
     await cog.prefix_teams.callback(cog, ctx)
 
     ctx.send.assert_called_once()
     embed = ctx.send.call_args[1]["embed"]
-    assert "4" in embed.title
-    assert "CIA" in embed.description
+    assert str(len(teams)) in embed.title
+    for team in teams:
+        assert team.name in embed.description

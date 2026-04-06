@@ -7,13 +7,24 @@ from pathlib import Path
 
 from flask import Flask, g, render_template
 from flask import request as flask_request
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.exceptions import HTTPException
 
 from quiver.config import Config
 from quiver.db.connection import get_connection
 from quiver.db.migrate import init_db
+from quiver.validation import MAX_REQUEST_SIZE_BYTES
 
 logger = logging.getLogger("quiver.web")
+
+csrf = CSRFProtect()
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["120 per minute"],
+    storage_uri="memory://",
+)
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -31,7 +42,11 @@ def create_app(config: Config | None = None) -> Flask:
 
     app.config["DATABASE_PATH"] = str(config.database_path)
     app.config["UPLOADS_PATH"] = str(config.uploads_path)
-    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+    app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_SIZE_BYTES
+    app.config["SECRET_KEY"] = config.flask_secret_key
+
+    csrf.init_app(app)
+    limiter.init_app(app)
 
     # Initialize DB on startup
     with app.app_context():
@@ -54,6 +69,22 @@ def create_app(config: Config | None = None) -> Flask:
             db.close()
 
     @app.after_request
+    def set_security_headers(response):
+        # Content Security Policy — allow CDN resources used by base.html
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self'"
+        )
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+    @app.after_request
     def log_request(response):
         if flask_request.path != "/health":
             logger.info(
@@ -67,6 +98,10 @@ def create_app(config: Config | None = None) -> Flask:
     @app.errorhandler(404)
     def not_found(e):
         return render_template("errors/404.html"), 404
+
+    @app.errorhandler(429)
+    def rate_limited(e):
+        return render_template("errors/500.html"), 429
 
     @app.errorhandler(500)
     def server_error(e):

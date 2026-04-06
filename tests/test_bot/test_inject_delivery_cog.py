@@ -39,10 +39,10 @@ def cog(bot):
     return cog
 
 
-def _setup_team(db_path: str, name: str, channel_id: str) -> None:
+def _setup_team(db_path: str, team_name: str, channel_id: str) -> None:
     conn = get_connection(db_path)
     try:
-        team = team_repo.get_by_name(conn, name)
+        team = team_repo.get_by_name(conn, team_name)
         team_repo.update_channel_id(conn, team.id, channel_id)
     finally:
         conn.close()
@@ -61,13 +61,14 @@ def _make_mock_channel(channel_id: int):
 
 
 @pytest.mark.asyncio
-async def test_deliver_injects(cog, bot, db_path):
-    _setup_team(db_path, "CIA", "100")
+async def test_deliver_injects(cog, bot, db_path, teams):
+    first_team = teams[0]
+    _setup_team(db_path, first_team.name, "100")
 
     conn = get_connection(db_path)
     try:
-        cia = team_repo.get_by_name(conn, "CIA")
-        inject_service.send_inject(conn, "Flash report: target located", [cia.id])
+        team = team_repo.get_by_name(conn, first_team.name)
+        inject_service.send_inject(conn, "Flash report: target located", [team.id])
     finally:
         conn.close()
 
@@ -90,13 +91,14 @@ async def test_deliver_injects(cog, bot, db_path):
 
 
 @pytest.mark.asyncio
-async def test_deliver_responses(cog, bot, db_path):
-    _setup_team(db_path, "MI6", "200")
+async def test_deliver_responses(cog, bot, db_path, teams):
+    second_team = teams[1]
+    _setup_team(db_path, second_team.name, "200")
 
     conn = get_connection(db_path)
     try:
-        mi6 = team_repo.get_by_name(conn, "MI6")
-        req = request_service.create_request(conn, mi6.id, "Need HUMINT on target")
+        team = team_repo.get_by_name(conn, second_team.name)
+        req = request_service.create_request(conn, team.id, "Need HUMINT on target")
         request_service.resolve_request(
             conn, req.id, "approved", "Agent meeting confirmed for 0800Z"
         )

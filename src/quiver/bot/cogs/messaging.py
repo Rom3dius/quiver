@@ -18,6 +18,7 @@ from quiver.bot.utils import (
 from quiver.db.connection import get_connection
 from quiver.repositories import team_repo
 from quiver.services import message_service
+from quiver.validation import MAX_MESSAGE_CONTENT
 
 logger = logging.getLogger("quiver.bot.messaging")
 
@@ -33,6 +34,7 @@ class ComposeModal(discord.ui.Modal, title="Compose Message"):
         placeholder="Type your message here...",
         style=discord.TextStyle.paragraph,
         required=True,
+        max_length=MAX_MESSAGE_CONTENT,
     )
 
     def __init__(
@@ -165,6 +167,14 @@ async def _send_to_teams(
     content: str,
 ) -> discord.Embed:
     """Send a message to multiple teams. Returns a summary embed."""
+    if not content.strip():
+        return error_embed("Message content cannot be empty.")
+
+    if len(content) > MAX_MESSAGE_CONTENT:
+        return error_embed(
+            f"Message too long ({len(content)} chars, max {MAX_MESSAGE_CONTENT})."
+        )
+
     conn = get_connection(get_db_path(bot))
     try:
         from_team = get_team_by_channel(conn, channel_id)

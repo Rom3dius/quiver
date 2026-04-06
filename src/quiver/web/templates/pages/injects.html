@@ -6,10 +6,10 @@
 
 <form id="inject-form" class="inject-form" hx-post="{{ url_for('injects.create_inject') }}" hx-target="#inject-result" hx-swap="innerHTML" hx-encoding="multipart/form-data" hx-on::after-request="if(event.detail.successful) this.reset()">
     <label for="content">Inject Content</label>
-    <textarea id="content" name="content" placeholder="Write the intelligence inject here..." required></textarea>
+    <textarea id="content" name="content" placeholder="Write the intelligence inject here..." required maxlength="4000"></textarea>
 
     <label for="operator">Operator Name</label>
-    <input type="text" id="operator" name="operator" value="C2" placeholder="C2">
+    <input type="text" id="operator" name="operator" value="C2" placeholder="C2" maxlength="50">
 
     <fieldset>
         <legend>Recipients</legend>

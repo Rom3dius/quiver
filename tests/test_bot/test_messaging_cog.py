@@ -29,78 +29,82 @@ def bot(db_path):
     return mock_bot
 
 
-def _setup_teams(db_path: str) -> tuple[int, int, int]:
+def _setup_teams(db_path: str, teams) -> tuple[int, int, int]:
+    """Assign channel IDs to the first 3 seeded teams and return those IDs."""
     conn = get_connection(db_path)
     try:
-        cia = team_repo.get_by_name(conn, "CIA")
-        mi6 = team_repo.get_by_name(conn, "MI6")
-        bnd = team_repo.get_by_name(conn, "BND")
-        team_repo.update_channel_id(conn, cia.id, "100")
-        team_repo.update_channel_id(conn, mi6.id, "200")
-        team_repo.update_channel_id(conn, bnd.id, "300")
+        for i, ch_id in enumerate(["100", "200", "300"]):
+            team = team_repo.get_by_name(conn, teams[i].name)
+            team_repo.update_channel_id(conn, team.id, ch_id)
     finally:
         conn.close()
     return 100, 200, 300
 
 
 @pytest.mark.asyncio
-async def test_send_single_team(bot, db_path):
-    cia_ch, mi6_ch, _ = _setup_teams(db_path)
+async def test_send_single_team(bot, db_path, teams):
+    team_b = teams[1]
+    ch_a, ch_b, _ = _setup_teams(db_path, teams)
 
     mock_channel = AsyncMock(spec=discord.TextChannel)
-    bot.get_channel = lambda cid: mock_channel if cid == mi6_ch else None
+    bot.get_channel = lambda cid: mock_channel if cid == ch_b else None
 
-    result = await _send_to_teams(bot, cia_ch, ["MI6"], "Intel to share")
+    result = await _send_to_teams(bot, ch_a, [team_b.name], "Intel to share")
 
     mock_channel.send.assert_called_once()
-    assert "MI6" in result.description
+    assert team_b.name in result.description
 
 
 @pytest.mark.asyncio
-async def test_send_multiple_teams(bot, db_path):
-    cia_ch, mi6_ch, bnd_ch = _setup_teams(db_path)
+async def test_send_multiple_teams(bot, db_path, teams):
+    team_b, team_c = teams[1], teams[2]
+    ch_a, ch_b, ch_c = _setup_teams(db_path, teams)
 
     channels = {
-        mi6_ch: AsyncMock(spec=discord.TextChannel),
-        bnd_ch: AsyncMock(spec=discord.TextChannel),
+        ch_b: AsyncMock(spec=discord.TextChannel),
+        ch_c: AsyncMock(spec=discord.TextChannel),
     }
     bot.get_channel = lambda cid: channels.get(cid)
 
-    result = await _send_to_teams(bot, cia_ch, ["MI6", "BND"], "Joint briefing")
+    result = await _send_to_teams(
+        bot, ch_a, [team_b.name, team_c.name], "Joint briefing"
+    )
 
-    channels[mi6_ch].send.assert_called_once()
-    channels[bnd_ch].send.assert_called_once()
-    assert "MI6" in result.description
-    assert "BND" in result.description
+    channels[ch_b].send.assert_called_once()
+    channels[ch_c].send.assert_called_once()
+    assert team_b.name in result.description
+    assert team_c.name in result.description
 
 
 @pytest.mark.asyncio
-async def test_send_unknown_target(bot, db_path):
-    _setup_teams(db_path)
+async def test_send_unknown_target(bot, db_path, teams):
+    _setup_teams(db_path, teams)
 
     result = await _send_to_teams(bot, 100, ["NONEXISTENT"], "Hello")
     assert "not found" in result.description
 
 
 @pytest.mark.asyncio
-async def test_send_to_self(bot, db_path):
-    _setup_teams(db_path)
+async def test_send_to_self(bot, db_path, teams):
+    team_a = teams[0]
+    _setup_teams(db_path, teams)
 
-    result = await _send_to_teams(bot, 100, ["CIA"], "Talking to myself")
+    result = await _send_to_teams(bot, 100, [team_a.name], "Talking to myself")
     assert "own team" in result.description
 
 
 @pytest.mark.asyncio
-async def test_partial_failure(bot, db_path):
-    cia_ch, mi6_ch, _ = _setup_teams(db_path)
+async def test_partial_failure(bot, db_path, teams):
+    team_b = teams[1]
+    ch_a, ch_b, _ = _setup_teams(db_path, teams)
 
     mock_channel = AsyncMock(spec=discord.TextChannel)
-    bot.get_channel = lambda cid: mock_channel if cid == mi6_ch else None
+    bot.get_channel = lambda cid: mock_channel if cid == ch_b else None
 
-    result = await _send_to_teams(bot, cia_ch, ["MI6", "NONEXISTENT"], "Partial")
+    result = await _send_to_teams(bot, ch_a, [team_b.name, "NONEXISTENT"], "Partial")
 
     mock_channel.send.assert_called_once()
-    assert "MI6" in result.description
+    assert team_b.name in result.description
     # Should have Message field and Errors field
     field_values = {f.name: f.value for f in result.fields}
     assert "Message" in field_values

@@ -2,11 +2,11 @@
 
 import pytest
 
-from quiver.repositories import request_repo, team_repo
+from quiver.repositories import request_repo
 
 
-def test_create_request(conn):
-    team = team_repo.get_by_name(conn, "CIA")
+def test_create_request(conn, teams):
+    team = teams[0]
     req = request_repo.create(conn, team.id, "Need satellite imagery", "msg_123")
     assert req.team_id == team.id
     assert req.content == "Need satellite imagery"
@@ -16,8 +16,8 @@ def test_create_request(conn):
     assert req.resolved_at is None
 
 
-def test_get_pending(conn):
-    team = team_repo.get_by_name(conn, "MI6")
+def test_get_pending(conn, teams):
+    team = teams[0]
     request_repo.create(conn, team.id, "Request 1")
     request_repo.create(conn, team.id, "Request 2")
 
@@ -25,8 +25,8 @@ def test_get_pending(conn):
     assert len(pending) == 2
 
 
-def test_resolve_approve(conn):
-    team = team_repo.get_by_name(conn, "MOSSAD")
+def test_resolve_approve(conn, teams):
+    team = teams[1]
     req = request_repo.create(conn, team.id, "Agent meeting request")
 
     resolved = request_repo.resolve(
@@ -37,24 +37,24 @@ def test_resolve_approve(conn):
     assert resolved.resolved_at is not None
 
 
-def test_resolve_deny(conn):
-    team = team_repo.get_by_name(conn, "BND")
+def test_resolve_deny(conn, teams):
+    team = teams[2] if len(teams) > 2 else teams[0]
     req = request_repo.create(conn, team.id, "Risky operation")
 
     resolved = request_repo.resolve(conn, req.id, "denied", "Too risky")
     assert resolved.status == "denied"
 
 
-def test_resolve_invalid_status(conn):
-    team = team_repo.get_by_name(conn, "CIA")
+def test_resolve_invalid_status(conn, teams):
+    team = teams[0]
     req = request_repo.create(conn, team.id, "Something")
 
     with pytest.raises(ValueError, match="Invalid status"):
         request_repo.resolve(conn, req.id, "maybe")
 
 
-def test_undelivered_responses(conn):
-    team = team_repo.get_by_name(conn, "MI6")
+def test_undelivered_responses(conn, teams):
+    team = teams[0]
     req = request_repo.create(conn, team.id, "Intel needed")
     request_repo.resolve(conn, req.id, "approved", "Here is the intel")
 
@@ -63,8 +63,8 @@ def test_undelivered_responses(conn):
     assert undelivered[0].id == req.id
 
 
-def test_mark_response_delivered(conn):
-    team = team_repo.get_by_name(conn, "MOSSAD")
+def test_mark_response_delivered(conn, teams):
+    team = teams[1]
     req = request_repo.create(conn, team.id, "Request")
     request_repo.resolve(conn, req.id, "denied", "No")
 

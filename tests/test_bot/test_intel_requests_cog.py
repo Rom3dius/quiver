@@ -43,10 +43,11 @@ def _make_ctx(channel_id: int, message_id: int = 12345) -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_submit_request_from_known_team(cog, db_path):
+async def test_submit_request_from_known_team(cog, db_path, teams):
+    first_team = teams[0]
     conn = get_connection(db_path)
     try:
-        team = team_repo.get_by_name(conn, "CIA")
+        team = team_repo.get_by_name(conn, first_team.name)
         team_repo.update_channel_id(conn, team.id, "99999")
     finally:
         conn.close()

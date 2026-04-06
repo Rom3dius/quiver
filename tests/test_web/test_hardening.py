@@ -2,34 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
-from quiver.config import Config
 from quiver.db.connection import get_connection
 from quiver.repositories import heartbeat_repo
-from quiver.web.app import create_app
-
-
-@pytest.fixture
-def app(tmp_path):
-    db_path = tmp_path / "test.db"
-    config = Config(
-        discord_token="test-token",
-        bot_command_prefix="!",
-        database_path=db_path,
-        uploads_path=tmp_path / "uploads",
-        flask_host="127.0.0.1",
-        flask_port=5000,
-    )
-    config.uploads_path.mkdir(exist_ok=True)
-    app = create_app(config)
-    app.config["TESTING"] = True
-    return app
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
 
 
 def test_404_page(client):

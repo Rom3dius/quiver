@@ -9,7 +9,7 @@
     </div>
     <p>{{ req.content }}</p>
     <form hx-post="{{ url_for('requests.resolve', request_id=req.id) }}" hx-target="#request-card-{{ req.id }}" hx-swap="outerHTML" hx-encoding="multipart/form-data">
-        <textarea name="response" placeholder="Response to team (optional)..." rows="2"></textarea>
+        <textarea name="response" placeholder="Response to team (optional)..." rows="2" maxlength="1000"></textarea>
         <label class="attach-label">
             Attach files
             <input type="file" name="attachments" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx">

@@ -1,10 +1,9 @@
 """Tests for inject repository."""
 
-from quiver.repositories import inject_repo, team_repo
+from quiver.repositories import inject_repo
 
 
-def test_create_inject_with_recipients(conn):
-    teams = team_repo.get_all(conn)
+def test_create_inject_with_recipients(conn, teams):
     team_ids = [teams[0].id, teams[1].id]
 
     inject = inject_repo.create(conn, "Test inject content", team_ids)
@@ -16,8 +15,7 @@ def test_create_inject_with_recipients(conn):
     assert all(r.delivered_at is None for r in recipients)
 
 
-def test_get_undelivered_recipients(conn):
-    teams = team_repo.get_all(conn)
+def test_get_undelivered_recipients(conn, teams):
     inject_repo.create(conn, "Inject 1", [teams[0].id])
     inject_repo.create(conn, "Inject 2", [teams[1].id, teams[2].id])
 
@@ -25,8 +23,7 @@ def test_get_undelivered_recipients(conn):
     assert len(undelivered) == 3
 
 
-def test_mark_delivered(conn):
-    teams = team_repo.get_all(conn)
+def test_mark_delivered(conn, teams):
     inject_repo.create(conn, "Inject", [teams[0].id])
 
     undelivered = inject_repo.get_undelivered_recipients(conn)
@@ -39,8 +36,7 @@ def test_mark_delivered(conn):
     assert len(undelivered_after) == 0
 
 
-def test_get_all_injects(conn):
-    teams = team_repo.get_all(conn)
+def test_get_all_injects(conn, teams):
     inject_repo.create(conn, "First", [teams[0].id])
     inject_repo.create(conn, "Second", [teams[1].id])
 
@@ -50,8 +46,7 @@ def test_get_all_injects(conn):
     assert contents == {"First", "Second"}
 
 
-def test_get_by_id(conn):
-    teams = team_repo.get_all(conn)
+def test_get_by_id(conn, teams):
     inject = inject_repo.create(conn, "Find me", [teams[0].id])
     found = inject_repo.get_by_id(conn, inject.id)
     assert found is not None
