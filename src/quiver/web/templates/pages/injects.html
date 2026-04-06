@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Injects — Quiver C2{% endblock %}
+
+{% block content %}
+<h1>Inject Composer</h1>
+
+<form id="inject-form" class="inject-form" hx-post="{{ url_for('injects.create_inject') }}" hx-target="#inject-result" hx-swap="innerHTML" hx-encoding="multipart/form-data" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <label for="content">Inject Content</label>
+    <textarea id="content" name="content" placeholder="Write the intelligence inject here..." required></textarea>
+
+    <label for="operator">Operator Name</label>
+    <input type="text" id="operator" name="operator" value="C2" placeholder="C2">
+
+    <fieldset>
+        <legend>Recipients</legend>
+        <div class="select-all-controls">
+            <a onclick="document.querySelectorAll('.team-cb').forEach(c => c.checked = true)">Select All</a>
+            <a onclick="document.querySelectorAll('.team-cb').forEach(c => c.checked = false)">Clear All</a>
+        </div>
+        <div class="team-checkboxes">
+            {% for team in teams %}
+            <label>
+                <input type="checkbox" class="team-cb" name="team_ids" value="{{ team.id }}">
+                {{ team.name }}
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <label for="attachments">Attachments</label>
+    <input type="file" id="attachments" name="attachments" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx">
+
+    <button type="submit">Send Inject</button>
+</form>
+
+<div id="inject-result"></div>
+
+<hr>
+
+<h2>Inject History</h2>
+<div id="inject-history">
+    <p aria-busy="true">Loading...</p>
+</div>
+
+<script>
+(function() {
+    // Auto-fade inject confirmations
+    var resultDiv = document.getElementById('inject-result');
+    var observer = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+            for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+                var node = mutations[i].addedNodes[j];
+                if (node.nodeType === 1) {
+                    setTimeout(function(el) {
+                        el.style.transition = 'opacity 0.5s';
+                        el.style.opacity = '0';
+                        setTimeout(function() { el.remove(); }, 500);
+                    }, 3000, node);
+                }
+            }
+        }
+    });
+    observer.observe(resultDiv, { childList: true });
+
+    // Paginated inject history, auto-refreshes current page
+    var historyDiv = document.getElementById('inject-history');
+    var currentPage = 1;
+    var historyUrl = "{{ url_for('injects.inject_history_partial') }}";
+
+    function getExpanded(container) {
+        var keys = [];
+        container.querySelectorAll('.expandable.open').forEach(function(el) {
+            if (el.dataset.expand) keys.push(el.dataset.expand);
+        });
+        return keys;
+    }
+
+    function restoreExpanded(container, keys) {
+        keys.forEach(function(key) {
+            var el = container.querySelector('[data-expand="' + key + '"]');
+            if (el) el.classList.add('open');
+        });
+    }
+
+    function loadHistory(page) {
+        currentPage = page;
+        var expandedBefore = getExpanded(historyDiv);
+        fetch(historyUrl + '?page=' + page)
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                historyDiv.innerHTML = html;
+                restoreExpanded(historyDiv, expandedBefore);
+                historyDiv.querySelectorAll('[data-page]').forEach(function(link) {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        loadHistory(parseInt(this.dataset.page));
+                    });
+                });
+            });
+    }
+
+    loadHistory(1);
+    setInterval(function() { loadHistory(currentPage); }, 5000);
+})();
+</script>
+{% endblock %}

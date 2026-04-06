@@ -1,0 +1,7 @@
+{% if pending %}
+{% for req in pending %}
+{% include "partials/request_card.html" %}
+{% endfor %}
+{% else %}
+<p id="no-pending-msg">No pending requests.</p>
+{% endif %}

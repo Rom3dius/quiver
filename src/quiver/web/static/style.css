@@ -1,0 +1,141 @@
+/* Quiver C2 Dashboard — minimal overrides on Pico CSS */
+
+table {
+    table-layout: fixed;
+    width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.overflow-wrapper {
+    overflow-x: auto;
+}
+
+nav strong {
+    letter-spacing: 0.1em;
+    color: var(--pico-primary);
+}
+
+.inject-form textarea {
+    min-height: 8rem;
+}
+
+.team-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.25rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.team-checkboxes label {
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.request-card {
+    border-left: 4px solid var(--pico-primary);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+}
+
+.request-card.resolved {
+    border-left-color: var(--pico-muted-border-color);
+    opacity: 0.7;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-badge.pending { background: #f0ad4e; color: #000; }
+.status-badge.approved { background: #5cb85c; color: #fff; }
+.status-badge.denied { background: #d9534f; color: #fff; }
+
+.event-type {
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.event-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.flash-success {
+    padding: 0.75rem 1rem;
+    background: #2d4a2d;
+    border: 1px solid #5cb85c;
+    border-radius: var(--pico-border-radius);
+    margin-bottom: 1rem;
+}
+
+.select-all-controls {
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.select-all-controls a {
+    cursor: pointer;
+    margin-right: 1rem;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.stat-card h2 {
+    font-size: 2.5rem;
+    margin-bottom: 0;
+}
+
+.timestamp {
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+}
+
+.expand-link {
+    cursor: pointer;
+    color: var(--pico-primary);
+    font-size: 0.8rem;
+    text-decoration: underline;
+}
+
+.expandable .text-full {
+    display: none;
+}
+
+.expandable.open .text-short {
+    display: none;
+}
+
+.expandable.open .text-full {
+    display: inline;
+}
+
+.delivery-status {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.delivery-status.delivering {
+    color: #f0ad4e;
+}
+
+.delivery-status.delivered {
+    color: #5cb85c;
+}

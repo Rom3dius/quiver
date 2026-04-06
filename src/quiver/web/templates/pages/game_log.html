@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Game Log — Quiver C2{% endblock %}
+
+{% block content %}
+<h1>Game Log</h1>
+
+<div style="display:flex;gap:1rem;align-items:end;flex-wrap:wrap;margin-bottom:1rem;">
+    <label>
+        Event Type
+        <select id="filter-event-type">
+            <option value="">All Events</option>
+            {% for key, label in event_type_labels.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>
+        Team
+        <select id="filter-team">
+            <option value="">All Teams</option>
+            {% for team in teams %}
+            <option value="{{ team.id }}">{{ team.name }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button class="outline" onclick="currentPage=1;loadLog(1);">Filter</button>
+</div>
+
+<div id="game-log-content">
+    <p aria-busy="true">Loading...</p>
+</div>
+
+<script>
+(function() {
+    var logDiv = document.getElementById('game-log-content');
+    var dataUrl = "{{ url_for('game_log.log_data') }}";
+    var currentPage = 1;
+    // Expose to onclick
+    window.currentPage = currentPage;
+
+    var filterType = document.getElementById('filter-event-type');
+    var filterTeam = document.getElementById('filter-team');
+
+    function getExpanded() {
+        var keys = [];
+        logDiv.querySelectorAll('.expandable.open').forEach(function(el) {
+            if (el.dataset.expand) keys.push(el.dataset.expand);
+        });
+        return keys;
+    }
+
+    function restoreExpanded(keys) {
+        keys.forEach(function(key) {
+            var el = logDiv.querySelector('[data-expand="' + key + '"]');
+            if (el) el.classList.add('open');
+        });
+    }
+
+    function buildUrl(page) {
+        var params = 'page=' + page;
+        if (filterType.value) params += '&event_type=' + filterType.value;
+        if (filterTeam.value) params += '&team_id=' + filterTeam.value;
+        return dataUrl + '?' + params;
+    }
+
+    function loadLog(page) {
+        currentPage = page;
+        window.currentPage = page;
+        var expandedBefore = getExpanded();
+        fetch(buildUrl(page))
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                logDiv.innerHTML = html;
+                restoreExpanded(expandedBefore);
+                logDiv.querySelectorAll('[data-page]').forEach(function(link) {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        loadLog(parseInt(this.dataset.page));
+                    });
+                });
+            });
+    }
+    window.loadLog = loadLog;
+
+    // Apply filter on Enter or select change
+    filterType.addEventListener('change', function() { currentPage = 1; loadLog(1); });
+    filterTeam.addEventListener('change', function() { currentPage = 1; loadLog(1); });
+
+    loadLog(1);
+    setInterval(function() { loadLog(window.currentPage); }, 5000);
+})();
+</script>
+{% endblock %}

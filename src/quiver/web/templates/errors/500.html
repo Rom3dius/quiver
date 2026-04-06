@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Server Error — Quiver C2{% endblock %}
+
+{% block content %}
+<h1>500 — Internal Server Error</h1>
+<p>Something went wrong. Check the server logs for details.</p>
+<a href="{{ url_for('dashboard.index') }}" role="button">Back to Dashboard</a>
+{% endblock %}

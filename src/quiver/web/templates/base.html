@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Quiver C2{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/idiomorph@0.3.0/dist/idiomorph-ext.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>QUIVER C2</strong></li>
+        </ul>
+        <ul>
+            <li><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+            <li><a href="{{ url_for('injects.inject_page') }}">Injects</a></li>
+            <li><a href="{{ url_for('requests.request_page') }}">Requests</a></li>
+            <li><a href="{{ url_for('game_log.log_page') }}">Game Log</a></li>
+            <li><a href="{{ url_for('teams.teams_page') }}">Teams</a></li>
+        </ul>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="container">
+        <small>Quiver Intelligence Wargame &mdash; Command &amp; Control Dashboard</small>
+    </footer>
+</body>
+</html>

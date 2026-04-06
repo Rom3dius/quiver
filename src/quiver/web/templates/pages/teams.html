@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Teams — Quiver C2{% endblock %}
+
+{% block content %}
+<h1>Team Overview</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>Team</th>
+            <th>Channel</th>
+            <th>Requests</th>
+            <th>Pending</th>
+            <th>Last Activity</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in team_stats %}
+        <tr>
+            <td><strong>{{ item.team.name }}</strong></td>
+            <td>
+                {% if item.channel_configured %}
+                <span style="color:#5cb85c;">Configured</span>
+                {% else %}
+                <span style="color:#d9534f;">Not configured</span>
+                {% endif %}
+            </td>
+            <td>{{ item.request_count }}</td>
+            <td>
+                {% if item.pending_count > 0 %}
+                <span class="status-badge pending">{{ item.pending_count }}</span>
+                {% else %}
+                0
+                {% endif %}
+            </td>
+            <td class="timestamp">
+                {% if item.last_activity %}
+                {{ item.last_activity.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                —
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

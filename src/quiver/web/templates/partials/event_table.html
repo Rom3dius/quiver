@@ -1,0 +1,18 @@
+{% for event in events %}
+<tr id="event-row-{{ event.id }}">
+    <td style="text-align:center;font-size:1.2rem;">{{ event.icon }}</td>
+    <td class="timestamp">{{ event.created_at.strftime('%H:%M:%S') }}</td>
+    <td><span class="event-label">{{ event.label }}</span></td>
+    <td>{% if event.team_name %}<strong>{{ event.team_name }}</strong>{% else %}—{% endif %}</td>
+    <td>
+        {% if event.full_content %}
+        <span class="expandable" data-expand="evt-{{ event.id }}">
+            <span class="text-short">{{ event.summary }} <a class="expand-link" onclick="this.closest('.expandable').classList.add('open')">more</a></span>
+            <span class="text-full">{{ event.full_content }} <a class="expand-link" onclick="this.closest('.expandable').classList.remove('open')">less</a></span>
+        </span>
+        {% else %}
+        {{ event.summary if event.summary else '—' }}
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}

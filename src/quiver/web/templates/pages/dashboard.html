@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Quiver C2{% endblock %}
+
+{% block content %}
+<h1>Command &amp; Control Dashboard</h1>
+
+<div hx-get="{{ url_for('dashboard.bot_status_partial') }}" hx-trigger="every 5s" hx-swap="innerHTML" style="margin-bottom:1rem;">
+    {% include "partials/bot_status.html" %}
+</div>
+
+<div class="stat-grid">
+    <article class="stat-card">
+        <h2>{{ team_count }}</h2>
+        <p>Teams</p>
+    </article>
+    <article class="stat-card">
+        <h2 id="stat-pending">—</h2>
+        <p>Pending Requests</p>
+    </article>
+    <article class="stat-card">
+        <h2 id="stat-injects">—</h2>
+        <p>Total Injects</p>
+    </article>
+    <article class="stat-card">
+        <h2 id="stat-requests">—</h2>
+        <p>Total Requests</p>
+    </article>
+</div>
+
+<section>
+    <h2>Recent Activity</h2>
+    <div id="recent-activity">
+        <p aria-busy="true">Loading...</p>
+    </div>
+</section>
+
+<script>
+(function() {
+    var statsUrl = "{{ url_for('dashboard.stats_partial') }}";
+    function updateStats() {
+        fetch(statsUrl)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.getElementById('stat-pending').textContent = data.pending_count;
+                document.getElementById('stat-injects').textContent = data.inject_count;
+                document.getElementById('stat-requests').textContent = data.request_count;
+            });
+    }
+
+    var activityDiv = document.getElementById('recent-activity');
+    var activityUrl = "{{ url_for('dashboard.recent_activity_partial') }}";
+    function loadActivity() {
+        var expanded = [];
+        activityDiv.querySelectorAll('.expandable.open').forEach(function(el) {
+            if (el.dataset.expand) expanded.push(el.dataset.expand);
+        });
+        fetch(activityUrl)
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                activityDiv.innerHTML = html;
+                expanded.forEach(function(key) {
+                    var el = activityDiv.querySelector('[data-expand="' + key + '"]');
+                    if (el) el.classList.add('open');
+                });
+            });
+    }
+
+    updateStats();
+    loadActivity();
+    setInterval(updateStats, 5000);
+    setInterval(loadActivity, 5000);
+})();
+</script>
+{% endblock %}

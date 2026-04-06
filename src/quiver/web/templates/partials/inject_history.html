@@ -1,0 +1,56 @@
+{% if injects %}
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Operator</th>
+            <th>Content</th>
+            <th>Files</th>
+            <th>Recipients</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in injects %}
+        <tr id="inject-row-{{ item.inject.id }}">
+            <td>{{ item.inject.id }}</td>
+            <td class="timestamp">{{ item.inject.created_at.strftime('%H:%M:%S') }}</td>
+            <td>{{ item.inject.sent_by_operator }}</td>
+            <td>
+                {% if item.inject.content|length > 100 %}
+                <span class="expandable" data-expand="inj-{{ item.inject.id }}">
+                    <span class="text-short">{{ item.inject.content[:100] }}... <a class="expand-link" onclick="this.closest('.expandable').classList.add('open')">more</a></span>
+                    <span class="text-full">{{ item.inject.content }} <a class="expand-link" onclick="this.closest('.expandable').classList.remove('open')">less</a></span>
+                </span>
+                {% else %}
+                {{ item.inject.content }}
+                {% endif %}
+            </td>
+            <td>{% if item.attachment_count %}{{ item.attachment_count }}{% else %}—{% endif %}</td>
+            <td>{{ item.team_names|join(', ') }}</td>
+            <td>
+                {% if item.delivered == item.total %}
+                <span class="delivery-status delivered">&#10003; Delivered</span>
+                {% else %}
+                <span class="delivery-status delivering">&#9679; {{ item.delivered }}/{{ item.total }}</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if total_pages > 1 %}
+<nav style="display:flex;gap:0.5rem;justify-content:center;">
+    {% if page > 1 %}
+    <a data-page="{{ page - 1 }}" role="button" class="outline" href="#">&laquo; Prev</a>
+    {% endif %}
+    <span style="align-self:center;">Page {{ page }} of {{ total_pages }} ({{ total }} total)</span>
+    {% if page < total_pages %}
+    <a data-page="{{ page + 1 }}" role="button" class="outline" href="#">Next &raquo;</a>
+    {% endif %}
+</nav>
+{% endif %}
+{% else %}
+<p>No injects sent yet.</p>
+{% endif %}

@@ -1,0 +1,18 @@
+{% if events %}
+<table>
+    <thead>
+        <tr>
+            <th style="width:3rem;"></th>
+            <th>Time</th>
+            <th>Event</th>
+            <th>Team</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% include "partials/event_table.html" %}
+    </tbody>
+</table>
+{% else %}
+<p>No activity yet. Send an inject to get started.</p>
+{% endif %}

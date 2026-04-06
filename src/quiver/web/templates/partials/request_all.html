@@ -1,0 +1,55 @@
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Team</th>
+            <th>Request</th>
+            <th>Status</th>
+            <th>Response</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for req in requests %}
+        <tr id="all-req-{{ req.id }}">
+            <td>{{ req.id }}</td>
+            <td class="timestamp">{{ req.created_at.strftime('%H:%M:%S') }}</td>
+            <td>{{ teams_by_id.get(req.team_id).name if teams_by_id.get(req.team_id) else 'Unknown' }}</td>
+            <td>
+                {% if req.content|length > 120 %}
+                <span class="expandable" data-expand="req-content-{{ req.id }}">
+                    <span class="text-short">{{ req.content[:120] }}... <a class="expand-link" onclick="this.closest('.expandable').classList.add('open')">more</a></span>
+                    <span class="text-full">{{ req.content }} <a class="expand-link" onclick="this.closest('.expandable').classList.remove('open')">less</a></span>
+                </span>
+                {% else %}
+                {{ req.content }}
+                {% endif %}
+            </td>
+            <td><span class="status-badge {{ req.status }}">{{ req.status }}</span></td>
+            <td>
+                {% if req.response %}
+                    {% if req.response|length > 80 %}
+                    <span class="expandable" data-expand="req-resp-{{ req.id }}">
+                        <span class="text-short">{{ req.response[:80] }}... <a class="expand-link" onclick="this.closest('.expandable').classList.add('open')">more</a></span>
+                        <span class="text-full">{{ req.response }} <a class="expand-link" onclick="this.closest('.expandable').classList.remove('open')">less</a></span>
+                    </span>
+                    {% else %}
+                    {{ req.response }}
+                    {% endif %}
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if total_pages > 1 %}
+<nav style="display:flex;gap:0.5rem;justify-content:center;">
+    {% if page > 1 %}
+    <a data-page="{{ page - 1 }}" role="button" class="outline" href="#">&laquo; Prev</a>
+    {% endif %}
+    <span style="align-self:center;">Page {{ page }} of {{ total_pages }} ({{ total }} total)</span>
+    {% if page < total_pages %}
+    <a data-page="{{ page + 1 }}" role="button" class="outline" href="#">Next &raquo;</a>
+    {% endif %}
+</nav>
+{% endif %}

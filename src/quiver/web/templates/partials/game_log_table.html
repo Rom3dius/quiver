@@ -1,0 +1,25 @@
+<table>
+    <thead>
+        <tr>
+            <th style="width:3rem;"></th>
+            <th>Time</th>
+            <th>Event</th>
+            <th>Team</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% include "partials/event_table.html" %}
+    </tbody>
+</table>
+{% if total_pages > 1 %}
+<nav style="display:flex;gap:0.5rem;justify-content:center;">
+    {% if page > 1 %}
+    <a data-page="{{ page - 1 }}" role="button" class="outline" href="#">&laquo; Prev</a>
+    {% endif %}
+    <span style="align-self:center;">Page {{ page }} of {{ total_pages }} ({{ total }} total)</span>
+    {% if page < total_pages %}
+    <a data-page="{{ page + 1 }}" role="button" class="outline" href="#">Next &raquo;</a>
+    {% endif %}
+</nav>
+{% endif %}
