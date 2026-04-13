@@ -8,7 +8,7 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 
-from quiver.bot.embeds import error_embed
+from quiver.bot.embeds import error_embed, help_embed
 from quiver.config import Config
 from quiver.db.connection import get_connection
 from quiver.db.migrate import init_db
@@ -25,7 +25,7 @@ def create_bot(config: Config) -> commands.Bot:
     bot = commands.Bot(
         command_prefix=config.bot_command_prefix,
         intents=intents,
-        help_command=_build_help_command(),
+        help_command=_QuiverHelp(),
     )
 
     # Attach config to the bot instance so cogs can access it via self.bot
@@ -150,10 +150,20 @@ def _log_infra_event(db_path: Path, event_type: str, details: str) -> None:
         logger.exception("Failed to log infra event: %s", event_type)
 
 
-def _build_help_command() -> commands.DefaultHelpCommand:
-    return commands.DefaultHelpCommand(
-        no_category="Quiver Commands",
-    )
+class _QuiverHelp(commands.HelpCommand):
+    """Custom help that sends a single embed with all commands."""
+
+    async def send_bot_help(self, mapping: dict) -> None:
+        await self.get_destination().send(embed=help_embed())
+
+    async def send_command_help(self, command: commands.Command) -> None:
+        await self.get_destination().send(embed=help_embed())
+
+    async def send_cog_help(self, cog: commands.Cog) -> None:
+        await self.get_destination().send(embed=help_embed())
+
+    async def send_group_help(self, group: commands.Group) -> None:
+        await self.get_destination().send(embed=help_embed())
 
 
 def run_bot(config: Config) -> None:

@@ -131,6 +131,35 @@ def admin_status_embed(
     return embed
 
 
+def help_embed() -> discord.Embed:
+    embed = discord.Embed(
+        title="Quiver — Command Reference",
+        description=("Use **slash commands** or type **`!menu`** to get started."),
+        colour=COLOUR_INFO,
+    )
+    embed.add_field(
+        name="Slash Commands",
+        value=(
+            "`/menu` — Open the action menu\n"
+            "`/request` — Submit an intel request to C2\n"
+            "`/msg` — Send a message to other teams\n"
+            "`/teams` — List all teams\n"
+            "`/status` — Game status dashboard (admin)"
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Prefix Commands",
+        value=(
+            "`!menu` — Open the action menu\n"
+            "`!teams` — List all teams\n"
+            "`!help` — Show this message"
+        ),
+        inline=False,
+    )
+    return embed
+
+
 def error_embed(message: str) -> discord.Embed:
     return discord.Embed(
         description=f"⚠️ {message}",
