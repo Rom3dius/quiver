@@ -2,7 +2,7 @@
 {% block title %}Injects — Quiver C2{% endblock %}
 
 {% block content %}
-<h1>Inject Composer</h1>
+<h1>Inject</h1>
 
 <form id="inject-form" class="inject-form" hx-post="{{ url_for('injects.create_inject') }}" hx-target="#inject-result" hx-swap="innerHTML" hx-encoding="multipart/form-data" hx-on::after-request="if(event.detail.successful) this.reset()">
     <label for="content">Inject Content</label>

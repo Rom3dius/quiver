@@ -23,6 +23,7 @@ def app(tmp_path):
         flask_host="127.0.0.1",
         flask_port=5000,
         flask_secret_key="test-secret-key",
+        admin_role_name="C2 Operator",
     )
     app = create_app(config)
     app.config["TESTING"] = True

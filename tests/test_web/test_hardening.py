@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from quiver.db.connection import get_connection
 from quiver.repositories import heartbeat_repo
 
@@ -18,28 +20,30 @@ def test_health_check(client):
     assert resp.json["status"] == "ok"
 
 
-def test_bot_status_partial_no_heartbeat(client):
-    """Bot status should show offline when no recent heartbeat."""
-    resp = client.get("/bot-status")
+def test_bot_status_in_pulse_no_heartbeat(client):
+    """Pulse endpoint should report bot status even with stale heartbeat."""
+    resp = client.get("/pulse")
     assert resp.status_code == 200
-    # Initial heartbeat exists but is stale (just created, should be "online" briefly)
-    assert b"Bot" in resp.data
+    data = json.loads(resp.data)
+    assert "bot" in data
+    assert "online" in data["bot"]
 
 
-def test_bot_status_partial_after_beat(client, app):
-    """Bot status should show online after a fresh heartbeat."""
+def test_bot_status_in_pulse_after_beat(client, app):
+    """Pulse endpoint should show bot online after a fresh heartbeat."""
     conn = get_connection(app.config["DATABASE_PATH"])
     try:
         heartbeat_repo.beat(conn, guild_count=1)
     finally:
         conn.close()
 
-    resp = client.get("/bot-status")
+    resp = client.get("/pulse")
     assert resp.status_code == 200
-    assert b"Online" in resp.data
+    data = json.loads(resp.data)
+    assert data["bot"]["online"] is True
 
 
-def test_dashboard_includes_bot_status(client):
+def test_dashboard_loads(client):
     resp = client.get("/")
     assert resp.status_code == 200
-    assert b"Bot" in resp.data
+    assert b"COMMAND" in resp.data

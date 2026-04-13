@@ -2,73 +2,647 @@
 {% block title %}Dashboard — Quiver C2{% endblock %}
 
 {% block content %}
-<h1>Command &amp; Control Dashboard</h1>
+<style>
+    /* Force dark theme on this page regardless of user preference */
+    :root { color-scheme: dark; }
 
-<div class="bot-status-wrapper" hx-get="{{ url_for('dashboard.bot_status_partial') }}" hx-trigger="every 5s" hx-swap="innerHTML">
-    {% include "partials/bot_status.html" %}
-</div>
+    /* Full-viewport layout below the nav */
+    .live-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        grid-template-rows: auto 1fr 1fr;
+        gap: 0.75rem;
+        height: calc(100vh - 80px);
+        overflow: hidden;
+    }
 
-<div class="stat-grid">
-    <article class="stat-card">
-        <h2>{{ team_count }}</h2>
-        <p>Teams</p>
-    </article>
-    <article class="stat-card">
-        <h2 id="stat-pending">—</h2>
-        <p>Pending Requests</p>
-    </article>
-    <article class="stat-card">
-        <h2 id="stat-injects">—</h2>
-        <p>Total Injects</p>
-    </article>
-    <article class="stat-card">
-        <h2 id="stat-requests">—</h2>
-        <p>Total Requests</p>
-    </article>
-</div>
+    /* Clock bar spans full width */
+    .live-clock-bar {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+    }
+    .live-clock-bar h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+    }
+    .clock-display {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--q-primary);
+    }
+    .clock-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--q-text-muted);
+        margin-right: 0.5rem;
+    }
+    .game-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .game-btn {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.75rem;
+        border: 1px solid var(--q-border);
+        border-radius: var(--pico-border-radius);
+        cursor: pointer;
+        font-weight: 600;
+        background: transparent;
+        color: var(--q-text-muted);
+        transition: all 0.15s;
+        margin: 0;
+        width: auto;
+    }
+    .game-btn:hover:not(:disabled) { border-color: var(--q-primary); color: var(--q-text); }
+    .game-btn:disabled { opacity: 0.3; cursor: default; }
+    .game-btn.start { color: var(--q-accent-success); border-color: var(--q-accent-success); }
+    .game-btn.start:hover:not(:disabled) { background: var(--q-accent-success); color: #fff; }
+    .game-btn.stop { color: var(--q-accent-danger); border-color: var(--q-accent-danger); }
+    .game-btn.stop:hover:not(:disabled) { background: var(--q-accent-danger); color: #fff; }
 
-<section>
-    <h2>Recent Activity</h2>
-    <div id="recent-activity">
-        <p aria-busy="true">Loading...</p>
+    /* Sidebar spans both content rows — hidden scrollbar */
+    .live-sidebar {
+        grid-row: 2 / 4;
+        overflow-y: auto;
+        min-height: 0;
+        scrollbar-width: none;           /* Firefox */
+        -ms-overflow-style: none;        /* IE/Edge */
+    }
+    .live-sidebar::-webkit-scrollbar {
+        display: none;                   /* Chrome/Safari */
+    }
+    .live-sidebar article {
+        margin-bottom: 0.5rem;
+        padding: 0.6rem 0.75rem;
+    }
+
+    /* Section label style */
+    .panel-label {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--q-text-muted);
+        margin: 0 0 0.5rem 0;
+        font-weight: 600;
+    }
+
+    /* Pulse counters */
+    .pulse-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 0.15rem 0;
+    }
+    .pulse-row .lbl { color: var(--q-text-muted); font-size: 0.8rem; }
+    .pulse-row .val {
+        font-weight: 700;
+        font-size: 1rem;
+        font-family: 'IBM Plex Mono', monospace;
+    }
+    .val-green { color: var(--q-accent-success) !important; }
+    .val-amber { color: var(--q-accent-warning) !important; }
+    .val-red { color: var(--q-accent-danger) !important; }
+
+    .bot-indicator {
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        margin-right: 0.3rem;
+        vertical-align: middle;
+    }
+    .bot-indicator.online { background: var(--q-accent-success); }
+    .bot-indicator.offline { background: var(--q-accent-danger); }
+
+    /* Team activity bars */
+    .team-bar {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.2rem;
+        font-size: 0.75rem;
+    }
+    .team-bar .t-name {
+        width: 70px;
+        color: var(--q-text-muted);
+        flex-shrink: 0;
+        font-size: 0.7rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .team-bar .t-track {
+        flex: 1;
+        height: 10px;
+        background: var(--q-border);
+        border-radius: var(--pico-border-radius);
+        overflow: hidden;
+    }
+    .team-bar .t-fill {
+        height: 100%;
+        background: var(--q-primary);
+        border-radius: var(--pico-border-radius);
+        transition: width 0.5s ease;
+    }
+    .team-bar .t-count {
+        width: 28px;
+        text-align: right;
+        font-family: 'IBM Plex Mono', monospace;
+        color: var(--q-text-muted);
+        font-size: 0.7rem;
+    }
+
+    /* Sparkline */
+    .sparkline-canvas {
+        width: 100%;
+        height: 36px;
+        display: block;
+    }
+
+    /* Timeline + Comms panels */
+    .live-panel {
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        padding: 0.75rem;
+    }
+    .live-panel article {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0.5rem 0.75rem;
+    }
+    #timeline-canvas {
+        flex: 1;
+        min-height: 0;
+        display: block;
+        width: 100%;
+    }
+    #comms-graph {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+    }
+
+    /* Legend */
+    .tl-legend {
+        display: flex;
+        gap: 0.75rem;
+        padding-top: 0.4rem;
+        font-size: 0.65rem;
+        color: var(--q-text-muted);
+        flex-shrink: 0;
+    }
+    .tl-legend span { display: flex; align-items: center; gap: 0.25rem; }
+    .legend-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+</style>
+
+<div class="live-layout">
+    <div class="live-clock-bar">
+        <h2>COMMAND &amp; CONTROL</h2>
+        <div class="game-controls">
+            <button class="game-btn start" id="game-start-btn" onclick="gameControl('start')">Start</button>
+            <button class="game-btn stop" id="game-stop-btn" onclick="gameControl('stop')" disabled>Stop</button>
+            <span class="clock-label">Elapsed</span>
+            <span class="clock-display" id="clock">--:--:--</span>
+        </div>
     </div>
-</section>
 
+    <div class="live-sidebar">
+        <article>
+            <p class="panel-label">System</p>
+            <div class="pulse-row">
+                <span class="lbl"><span class="bot-indicator" id="bot-dot"></span>Bot</span>
+                <span class="val" id="bot-status">--</span>
+            </div>
+            <div class="pulse-row">
+                <span class="lbl">Teams</span>
+                <span class="val" id="teams-count">--</span>
+            </div>
+        </article>
+        <article>
+            <p class="panel-label">Activity</p>
+            <div class="pulse-row">
+                <span class="lbl">Pending Requests</span>
+                <span class="val" id="pending-count">--</span>
+            </div>
+            <div class="pulse-row">
+                <span class="lbl">Injects</span>
+                <span class="val" id="inject-count">--</span>
+            </div>
+            <div class="pulse-row">
+                <span class="lbl">Requests</span>
+                <span class="val" id="request-count">--</span>
+            </div>
+            <div class="pulse-row">
+                <span class="lbl">Messages</span>
+                <span class="val" id="message-count">--</span>
+            </div>
+            <div class="pulse-row">
+                <span class="lbl">Approval Rate</span>
+                <span class="val" id="approval-rate">--</span>
+            </div>
+        </article>
+        <article>
+            <p class="panel-label">Events / min</p>
+            <canvas class="sparkline-canvas" id="sparkline" width="240" height="36"></canvas>
+        </article>
+        <article>
+            <p class="panel-label">Team Activity (15m)</p>
+            <div id="team-bars"></div>
+        </article>
+    </div>
+
+    <div class="live-panel">
+        <article>
+            <p class="panel-label">Timeline (last 30 min)</p>
+            <canvas id="timeline-canvas"></canvas>
+            <div class="tl-legend">
+                <span><span class="legend-dot" style="background:#3498DB"></span>Inject</span>
+                <span><span class="legend-dot" style="background:#9B59B6"></span>Request</span>
+                <span><span class="legend-dot" style="background:#5CB85C"></span>Approved</span>
+                <span><span class="legend-dot" style="background:#E74C3C"></span>Denied</span>
+                <span><span class="legend-dot" style="background:#F0AD4E"></span>Message</span>
+            </div>
+        </article>
+    </div>
+
+    <div class="live-panel">
+        <article>
+            <p class="panel-label">Communication Network</p>
+            <div id="comms-graph"></div>
+        </article>
+    </div>
+</div>
+
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script>
 (function() {
-    var statsUrl = "{{ url_for('dashboard.stats_partial') }}";
-    function updateStats() {
-        fetch(statsUrl)
+    // Force dark theme on live page
+    document.documentElement.setAttribute('data-theme', 'dark');
+
+    var pulseUrl = "{{ url_for('dashboard.pulse_data') }}";
+    var timelineUrl = "{{ url_for('dashboard.timeline_data') }}";
+    var commsUrl = "{{ url_for('dashboard.comms_data') }}";
+    var gameStartedAt = null;
+    var network = null;
+    var commsNodes = new vis.DataSet();
+    var commsEdges = new vis.DataSet();
+
+    // Color tokens from the theme
+    var C = {
+        bg: '#0B1A2E',
+        surface: '#13294B',
+        border: '#1E3A5F',
+        text: '#E4E9F0',
+        muted: '#8FA3B8',
+        primary: '#4B9CD3',
+        success: '#5CB85C',
+        danger: '#E74C3C',
+        warning: '#F0AD4E',
+    };
+
+    // --- Clock ---
+    function updateClock() {
+        var el = document.getElementById('clock');
+        if (!gameStartedAt) { el.textContent = '--:--:--'; return; }
+        var now = new Date();
+        var diff = Math.floor((now - gameStartedAt) / 1000);
+        if (diff < 0) diff = 0;
+        var h = String(Math.floor(diff / 3600)).padStart(2, '0');
+        var m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+        var s = String(diff % 60).padStart(2, '0');
+        el.textContent = h + ':' + m + ':' + s;
+    }
+    setInterval(updateClock, 1000);
+
+    // --- Game controls ---
+    var startBtn = document.getElementById('game-start-btn');
+    var stopBtn = document.getElementById('game-stop-btn');
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    function updateGameButtons() {
+        if (gameStartedAt && !gameEndedAt) {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+        } else {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+    }
+
+    var gameEndedAt = null;
+    window.gameControl = function(action) {
+        var url = action === 'start'
+            ? "{{ url_for('dashboard.game_start') }}"
+            : "{{ url_for('dashboard.game_stop') }}";
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            gameStartedAt = data.started_at ? new Date(data.started_at) : null;
+            gameEndedAt = data.ended_at ? new Date(data.ended_at) : null;
+            updateGameButtons();
+        });
+    };
+
+    // --- Sparkline ---
+    function drawSparkline(buckets) {
+        var canvas = document.getElementById('sparkline');
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        if (!buckets || buckets.length === 0) return;
+
+        var counts = buckets.map(function(b) { return b.count; });
+        var max = Math.max.apply(null, counts) || 1;
+        var step = w / Math.max(counts.length - 1, 1);
+
+        ctx.beginPath();
+        ctx.strokeStyle = C.primary;
+        ctx.lineWidth = 2;
+        for (var i = 0; i < counts.length; i++) {
+            var x = i * step;
+            var y = h - (counts[i] / max) * (h - 4) - 2;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.lineTo((counts.length - 1) * step, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(75, 156, 211, 0.15)';
+        ctx.fill();
+    }
+
+    // --- Pulse update ---
+    function updatePulse() {
+        fetch(pulseUrl)
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                document.getElementById('stat-pending').textContent = data.pending_count;
-                document.getElementById('stat-injects').textContent = data.inject_count;
-                document.getElementById('stat-requests').textContent = data.request_count;
-            });
-    }
+                if (data.game && data.game.started_at) {
+                    gameStartedAt = new Date(data.game.started_at);
+                    if (data.game.ended_at) {
+                        gameEndedAt = new Date(data.game.ended_at);
+                        var diff = Math.floor((gameEndedAt - gameStartedAt) / 1000);
+                        var h = String(Math.floor(diff / 3600)).padStart(2, '0');
+                        var m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+                        var s = String(diff % 60).padStart(2, '0');
+                        document.getElementById('clock').textContent = h + ':' + m + ':' + s + ' (ENDED)';
+                        gameStartedAt = null;
+                    } else {
+                        gameEndedAt = null;
+                    }
+                } else {
+                    gameStartedAt = null;
+                    gameEndedAt = null;
+                }
+                updateGameButtons();
 
-    var activityDiv = document.getElementById('recent-activity');
-    var activityUrl = "{{ url_for('dashboard.recent_activity_partial') }}";
-    function loadActivity() {
-        var expanded = [];
-        activityDiv.querySelectorAll('.expandable.open').forEach(function(el) {
-            if (el.dataset.expand) expanded.push(el.dataset.expand);
-        });
-        fetch(activityUrl)
-            .then(function(r) { return r.text(); })
-            .then(function(html) {
-                activityDiv.innerHTML = html;
-                expanded.forEach(function(key) {
-                    var el = activityDiv.querySelector('[data-expand="' + key + '"]');
-                    if (el) el.classList.add('open');
+                var botDot = document.getElementById('bot-dot');
+                var botEl = document.getElementById('bot-status');
+                botDot.className = 'bot-indicator ' + (data.bot.online ? 'online' : 'offline');
+                botEl.textContent = data.bot.online ? 'ONLINE' : 'OFFLINE';
+                botEl.className = 'val ' + (data.bot.online ? 'val-green' : 'val-red');
+
+                document.getElementById('teams-count').textContent = data.counters.teams;
+
+                var pendingEl = document.getElementById('pending-count');
+                var p = data.counters.pending_requests;
+                pendingEl.textContent = p;
+                pendingEl.className = 'val ' + (p === 0 ? 'val-green' : p <= 3 ? 'val-amber' : 'val-red');
+
+                document.getElementById('inject-count').textContent = data.counters.total_injects;
+                document.getElementById('request-count').textContent = data.counters.total_requests;
+                document.getElementById('message-count').textContent = data.counters.total_messages;
+                document.getElementById('approval-rate').textContent = data.counters.approval_rate + '%';
+
+                drawSparkline(data.rate_buckets);
+
+                var barsDiv = document.getElementById('team-bars');
+                var maxEv = 1;
+                data.team_activity.forEach(function(t) { if (t.events > maxEv) maxEv = t.events; });
+                var html = '';
+                data.team_activity.forEach(function(t) {
+                    var pct = Math.round((t.events / maxEv) * 100);
+                    html += '<div class="team-bar">' +
+                        '<span class="t-name">' + t.name + '</span>' +
+                        '<div class="t-track"><div class="t-fill" style="width:' + pct + '%"></div></div>' +
+                        '<span class="t-count">' + t.events + '</span></div>';
                 });
+                barsDiv.innerHTML = html;
             });
     }
 
-    updateStats();
-    loadActivity();
-    setInterval(updateStats, 5000);
-    setInterval(loadActivity, 5000);
+    // --- Swim-lane timeline ---
+    var EVENT_COLORS = {
+        inject_sent: '#3498DB', inject_delivered: '#3498DB',
+        request_created: '#9B59B6',
+        request_resolved_approved: '#5CB85C', request_resolved_denied: '#E74C3C',
+        response_delivered: '#5CB85C',
+        inter_team_msg: '#F0AD4E',
+    };
+    function evtColor(type) { return EVENT_COLORS[type] || C.muted; }
+
+    var tlData = { teams: [], events: [] };
+
+    function drawTimeline() {
+        var canvas = document.getElementById('timeline-canvas');
+        var cw = canvas.clientWidth;
+        var ch = canvas.clientHeight;
+        if (cw < 10 || ch < 10) return;
+
+        var dpr = window.devicePixelRatio || 1;
+        if (canvas.width !== cw * dpr || canvas.height !== ch * dpr) {
+            canvas.width = cw * dpr;
+            canvas.height = ch * dpr;
+        }
+        var ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        var teams = tlData.teams || [];
+        var events = tlData.events || [];
+        var laneCount = teams.length + 1;
+        var labelW = 80, topPad = 18, botPad = 4, rightPad = 20;
+        // Scale lane height to fit; clamp between 12px (many teams) and 32px (few teams)
+        var laneH = Math.min(32, Math.max(12, (ch - topPad - botPad) / laneCount));
+        var plotW = cw - labelW - rightPad;
+        // Adaptive font size for lane labels
+        var laneFontSize = laneH >= 20 ? 11 : laneH >= 14 ? 9 : 8;
+        var now = new Date();
+        var t0 = new Date(now.getTime() - 30 * 60 * 1000);
+
+        // Background — use card surface color
+        ctx.fillStyle = C.surface;
+        ctx.fillRect(0, 0, cw, ch);
+
+        // Time axis — aligned to 5-min marks
+        ctx.fillStyle = C.muted;
+        ctx.font = '10px IBM Plex Mono, monospace';
+        ctx.textAlign = 'center';
+        var firstTick = new Date(t0);
+        firstTick.setSeconds(0, 0);
+        firstTick.setMinutes(Math.ceil(firstTick.getMinutes() / 5) * 5);
+        for (var tick = firstTick; tick <= now; tick = new Date(tick.getTime() + 5 * 60000)) {
+            var frac = (tick - t0) / (30 * 60 * 1000);
+            var tx = labelW + frac * plotW;
+            ctx.fillText(
+                String(tick.getHours()).padStart(2,'0') + ':' + String(tick.getMinutes()).padStart(2,'0'),
+                tx, 12
+            );
+            ctx.strokeStyle = C.border;
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(tx, topPad); ctx.lineTo(tx, ch - botPad); ctx.stroke();
+        }
+
+        // "Now" line
+        var nowX = labelW + plotW;
+        ctx.fillStyle = 'rgba(75,156,211,0.7)';
+        ctx.font = '9px IBM Plex Mono, monospace';
+        ctx.fillText('now', nowX, 12);
+        ctx.strokeStyle = 'rgba(75,156,211,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(nowX, topPad); ctx.lineTo(nowX, ch - botPad); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Lane labels + separators
+        var laneNames = ['C2'].concat(teams);
+        ctx.textAlign = 'right';
+        ctx.font = laneFontSize + 'px IBM Plex Sans, sans-serif';
+        // Max chars that fit in labelW at this font size (~7px per char)
+        var maxChars = Math.floor((labelW - 12) / (laneFontSize * 0.6));
+        for (var i = 0; i < laneNames.length; i++) {
+            var ly = topPad + i * laneH + laneH / 2;
+            ctx.fillStyle = (i === 0) ? C.primary : C.muted;
+            var name = laneNames[i];
+            if (name.length > maxChars) name = name.substring(0, maxChars - 1) + '\u2026';
+            ctx.fillText(name, labelW - 8, ly + Math.round(laneFontSize * 0.35));
+            ctx.strokeStyle = 'rgba(30,58,95,0.5)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(labelW, topPad + i * laneH);
+            ctx.lineTo(cw - rightPad, topPad + i * laneH);
+            ctx.stroke();
+        }
+
+        // Event dots
+        var teamIdx = {};
+        for (var i = 0; i < teams.length; i++) teamIdx[teams[i]] = i + 1;
+
+        for (var i = 0; i < events.length; i++) {
+            var evt = events[i];
+            var evtTime = new Date(evt.t);
+            var elapsed = (evtTime - t0) / (30 * 60 * 1000);
+            if (elapsed < 0 || elapsed > 1) continue;
+
+            var ex = labelW + elapsed * plotW;
+            var lane = evt.team ? (teamIdx[evt.team] !== undefined ? teamIdx[evt.team] : -1) : 0;
+            if (lane < 0) continue;
+            var ey = topPad + lane * laneH + laneH / 2;
+            var color = evtColor(evt.type);
+            var r = Math.min(5, laneH * 0.3);
+
+            // Inject: faint vertical line
+            if (evt.type === 'inject_sent' && lane === 0) {
+                ctx.strokeStyle = 'rgba(52,152,219,0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(ex, topPad); ctx.lineTo(ex, ch - botPad); ctx.stroke();
+                r = Math.min(7, laneH * 0.4);
+            }
+
+            // Dot with subtle glow
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(ex, ey, r, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    function fetchTimeline() {
+        fetch(timelineUrl)
+            .then(function(r) { return r.json(); })
+            .then(function(data) { tlData = data; });
+    }
+    setInterval(drawTimeline, 1000);
+    window.addEventListener('resize', drawTimeline);
+
+    // --- Comms graph ---
+    function updateComms() {
+        fetch(commsUrl)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var newNodeIds = data.nodes.map(function(n) { return n.id; });
+                var oldNodeIds = commsNodes.getIds();
+                oldNodeIds.forEach(function(id) {
+                    if (newNodeIds.indexOf(id) === -1) commsNodes.remove(id);
+                });
+                commsNodes.update(data.nodes);
+
+                function edgeKey(e) { return e.from + '->' + e.to; }
+                var newEdgeMap = {};
+                data.edges.forEach(function(e) { e.id = edgeKey(e); newEdgeMap[e.id] = e; });
+                commsEdges.getIds().forEach(function(id) {
+                    if (!newEdgeMap[id]) commsEdges.remove(id);
+                });
+                commsEdges.update(data.edges.map(function(e) { e.id = edgeKey(e); return e; }));
+
+                if (!network) {
+                    var container = document.getElementById('comms-graph');
+                    network = new vis.Network(container, { nodes: commsNodes, edges: commsEdges }, {
+                        nodes: {
+                            shape: 'dot',
+                            scaling: { min: 15, max: 40 },
+                            color: {
+                                background: C.primary, border: '#3A87BD',
+                                highlight: { background: '#6DB3E0', border: C.primary }
+                            },
+                            font: { color: C.text, size: 14, face: 'IBM Plex Sans' }
+                        },
+                        edges: {
+                            arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+                            scaling: { min: 1, max: 8 },
+                            color: { color: C.border, highlight: C.primary },
+                            font: { color: C.muted, size: 10 },
+                            smooth: { type: 'curvedCW', roundness: 0.2 }
+                        },
+                        physics: {
+                            barnesHut: { gravitationalConstant: -3000, springLength: 150 },
+                            stabilization: { iterations: 100 }
+                        },
+                        interaction: { hover: true, zoomView: false, dragView: false },
+                        layout: { improvedLayout: true }
+                    });
+                    network.once('stabilized', function() { network.setOptions({ physics: false }); });
+                }
+            });
+    }
+
+    // Boot
+    updatePulse();
+    fetchTimeline();
+    updateComms();
+    setInterval(updatePulse, 5000);
+    setInterval(fetchTimeline, 5000);
+    setInterval(updateComms, 15000);
 })();
 </script>
 {% endblock %}
