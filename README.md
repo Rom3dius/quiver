@@ -110,34 +110,34 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 
 ### Prefix Commands
 
-| Command | Description |
-|---------|-------------|
-| `!request <text>` | Submit an intel request to C2 |
-| `!msg <Team1,Team2> <text>` | Send a message to one or more teams |
-| `!status` | Show your team identity and available commands |
-| `!teams` | List all teams in the wargame |
-| `!help` | Show the full command list |
+| Command                     | Description                                    |
+| --------------------------- | ---------------------------------------------- |
+| `!request <text>`           | Submit an intel request to C2                  |
+| `!msg <Team1,Team2> <text>` | Send a message to one or more teams            |
+| `!status`                   | Show your team identity and available commands |
+| `!teams`                    | List all teams in the wargame                  |
+| `!help`                     | Show the full command list                     |
 
 ### Slash Commands
 
-| Command | Description |
-|---------|-------------|
-| `/request` | Submit an intel request (text input) |
-| `/msg` | Send a message (team select menu, then compose modal) |
-| `/status` | Show your team identity |
-| `/teams` | List all teams |
+| Command    | Description                                           |
+| ---------- | ----------------------------------------------------- |
+| `/request` | Submit an intel request (text input)                  |
+| `/msg`     | Send a message (team select menu, then compose modal) |
+| `/status`  | Show your team identity                               |
+| `/teams`   | List all teams                                        |
 
 See [docs/discord-commands.md](docs/discord-commands.md) for detailed usage and examples.
 
 ## Web Dashboard Pages
 
-| Page | URL | Purpose |
-|------|-----|---------|
-| Dashboard | `/` | Stats overview, bot status, recent activity |
-| Injects | `/injects` | Compose and send injects to teams |
-| Requests | `/requests` | Pending request queue, approve/deny with responses |
-| Game Log | `/log` | Filterable, paginated timeline of all events |
-| Teams | `/teams` | Team overview with activity and channel status |
+| Page      | URL         | Purpose                                            |
+| --------- | ----------- | -------------------------------------------------- |
+| Dashboard | `/`         | Stats overview, bot status, recent activity        |
+| Injects   | `/injects`  | Compose and send injects to teams                  |
+| Requests  | `/requests` | Pending request queue, approve/deny with responses |
+| Game Log  | `/log`      | Filterable, paginated timeline of all events       |
+| Teams     | `/teams`    | Team overview with activity and channel status     |
 
 See [docs/web-dashboard.md](docs/web-dashboard.md) for page details.
 
@@ -212,3 +212,14 @@ quiver/
 - [Discord Commands](docs/discord-commands.md) -- command reference with examples
 - [Web Dashboard](docs/web-dashboard.md) -- page-by-page guide
 - [Data Model](docs/data-model.md) -- tables, relationships, frozen models
+
+# TODO:
+
+- Add linebreaks for requests (swap to modal)
+- Show that a request is being worked on
+
+Datetime:
+Agency:
+Contact:
+Data:
+Nature:
