@@ -10,8 +10,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from quiver.bot.embeds import admin_status_embed, error_embed, teams_list_embed
-from quiver.bot.utils import get_db_path
-from quiver.db.connection import get_connection
+from quiver.bot.utils import bot_db
 from quiver.repositories import (
     heartbeat_repo,
     inject_repo,
@@ -36,17 +35,12 @@ class Status(commands.Cog):
         return "C2 Operator"
 
     async def _handle_teams(self) -> discord.Embed:
-        conn = get_connection(get_db_path(self.bot))
-        try:
+        with bot_db(self.bot) as conn:
             teams = team_repo.get_all(conn)
-            return teams_list_embed([t.name for t in teams])
-        finally:
-            conn.close()
+        return teams_list_embed([t.name for t in teams])
 
     async def _build_status_embed(self) -> discord.Embed:
-        conn = get_connection(get_db_path(self.bot))
-        try:
-            # Bot heartbeat
+        with bot_db(self.bot) as conn:
             heartbeat = heartbeat_repo.get(conn)
             if heartbeat is None:
                 bot_online = False
@@ -65,8 +59,6 @@ class Status(commands.Cog):
             inject_pending = len(inject_repo.get_undelivered_recipients(conn))
             req_summary = request_repo.request_summary(conn)
             msg_count = message_repo.count(conn)
-        finally:
-            conn.close()
 
         return admin_status_embed(
             bot_online=bot_online,
@@ -101,11 +93,10 @@ class Status(commands.Cog):
 
     @commands.command(name="status")
     async def prefix_status(self, ctx: commands.Context) -> None:
-        """Deprecated — use /status instead."""
+        """Show game status — use the slash command."""
         await ctx.send(
             embed=error_embed(
-                "The `!status` command has been replaced.\n"
-                "Please use `/status` instead (admin only)."
+                "Use `/status` to view the game status dashboard (admin only)."
             )
         )
 

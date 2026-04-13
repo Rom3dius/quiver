@@ -4,19 +4,36 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from contextlib import contextmanager
+from typing import Generator
 
 import discord
 from discord.ext import commands
 
+from quiver.db.connection import get_connection
 from quiver.db.models import Team
 from quiver.repositories import team_repo
 
 logger = logging.getLogger("quiver.bot")
 
+# Common error messages used across multiple cogs
+ERR_NO_TEAM = "This channel is not associated with any team."
+ERR_NO_TEAMS_TO_MSG = "No other teams available to message."
+
 
 def get_db_path(bot: commands.Bot) -> str:
     """Get the database path stored on the bot instance."""
     return str(bot.quiver_db_path)  # type: ignore[attr-defined]
+
+
+@contextmanager
+def bot_db(bot: commands.Bot) -> Generator[sqlite3.Connection, None, None]:
+    """Context manager for bot cog database access."""
+    conn = get_connection(get_db_path(bot))
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def get_team_by_channel(conn: sqlite3.Connection, channel_id: int) -> Team | None:

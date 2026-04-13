@@ -6,12 +6,17 @@ import json
 
 from flask import Blueprint, g, render_template, request
 
-from quiver.repositories import inject_repo, message_repo, request_repo, team_repo
-from quiver.services import event_service
+from quiver.repositories import (
+    event_repo,
+    inject_repo,
+    message_repo,
+    request_repo,
+    team_repo,
+)
+from quiver.web.helpers import PER_PAGE
+from quiver.web.helpers import teams_by_id as _teams_by_id
 
 bp = Blueprint("game_log", __name__, url_prefix="/log")
-
-PER_PAGE = 10
 
 EVENT_TYPE_LABELS = {
     "inject_sent": "Inject Sent",
@@ -335,11 +340,6 @@ def _slice_groups(events: list, group_start: int, group_count: int) -> list:
     return result
 
 
-# Keep this for the dashboard import
-def _format_event(event, teams_by_id: dict) -> dict:
-    return _format_single_event(event, teams_by_id)
-
-
 @bp.route("/")
 def log_page() -> str:
     teams = team_repo.get_all(g.db)
@@ -365,8 +365,8 @@ def log_data() -> str:
     # raw events, count groups cheaply via _count_groups, then slice only
     # the groups we need for the current page before doing expensive
     # formatting.
-    raw_total = event_service.count_events(g.db, filter_event_type, filter_team_id)
-    all_raw = event_service.get_events(
+    raw_total = event_repo.count(g.db, filter_event_type, filter_team_id)
+    all_raw = event_repo.get_all(
         g.db,
         filter_event_type,
         filter_team_id,
@@ -374,7 +374,7 @@ def log_data() -> str:
         offset=0,
     )
 
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
+    tbi = _teams_by_id(g.db)
 
     # Fast pass: count groups without formatting (no DB lookups)
     group_count = _count_groups(all_raw)
@@ -384,7 +384,7 @@ def log_data() -> str:
     # Only format the page we need — find the raw offset for this page
     start = (page - 1) * PER_PAGE
     page_raw = _slice_groups(all_raw, start, PER_PAGE)
-    page_events = _group_events(page_raw, teams_by_id)
+    page_events = _group_events(page_raw, tbi)
 
     return render_template(
         "partials/game_log_table.html",
@@ -399,9 +399,9 @@ def log_data() -> str:
 def log_partial() -> str:
     """HTMX partial: recent events for dashboard (ungrouped, simple)."""
     limit = request.args.get("limit", 10, type=int)
-    events = event_service.get_events(g.db, limit=limit)
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
-    formatted = [_format_single_event(e, teams_by_id) for e in events]
+    events = event_repo.get_all(g.db, limit=limit)
+    tbi = _teams_by_id(g.db)
+    formatted = [_format_single_event(e, tbi) for e in events]
     return render_template(
         "partials/event_table.html",
         events=formatted,

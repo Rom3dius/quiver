@@ -93,7 +93,7 @@ async def test_prefix_status_shows_deprecation(cog):
 
     ctx.send.assert_called_once()
     embed = ctx.send.call_args[1]["embed"]
-    assert "replaced" in embed.description
+    assert "/status" in embed.description
 
 
 # --- /teams (unchanged) ---

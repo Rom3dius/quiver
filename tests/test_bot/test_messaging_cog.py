@@ -128,4 +128,4 @@ async def test_prefix_msg_shows_deprecation(messaging_cog):
 
     ctx.send.assert_called_once()
     embed = ctx.send.call_args[1]["embed"]
-    assert "replaced" in embed.description
+    assert "/msg" in embed.description

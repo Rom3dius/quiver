@@ -31,11 +31,6 @@ def send_inject(
     return inject
 
 
-def get_undelivered() -> None:
-    """Placeholder — bot calls inject_repo.get_undelivered_recipients directly."""
-    raise NotImplementedError("Use inject_repo.get_undelivered_recipients()")
-
-
 def mark_delivered(
     conn: sqlite3.Connection, recipient: InjectRecipient
 ) -> InjectRecipient | None:

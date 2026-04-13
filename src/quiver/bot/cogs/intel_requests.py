@@ -9,8 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from quiver.bot.embeds import error_embed, request_received_embed
-from quiver.bot.utils import get_db_path, get_team_by_channel
-from quiver.db.connection import get_connection
+from quiver.bot.utils import ERR_NO_TEAM, bot_db, get_team_by_channel
 from quiver.services import request_service
 from quiver.validation import MAX_REQUEST_CONTENT
 
@@ -33,16 +32,12 @@ async def _handle_request(
             False,
         )
 
-    conn = get_connection(get_db_path(bot))
-    try:
+    with bot_db(bot) as conn:
         team = get_team_by_channel(conn, channel_id)
         if team is None:
-            return (
-                error_embed("This channel is not associated with any team."),
-                False,
-            )
+            return error_embed(ERR_NO_TEAM), False
 
-        request = request_service.create_request(
+        req = request_service.create_request(
             conn,
             team_id=team.id,
             content=content,
@@ -50,13 +45,11 @@ async def _handle_request(
         )
         logger.info(
             "Intel request #%d from %s: %.80s",
-            request.id,
+            req.id,
             team.name,
             content,
         )
-        return request_received_embed(request.id, content), True
-    finally:
-        conn.close()
+        return request_received_embed(req.id, content), True
 
 
 class RequestModal(discord.ui.Modal, title="Submit Intel Request"):
@@ -99,12 +92,9 @@ class IntelRequests(commands.Cog):
 
     @commands.command(name="request", aliases=["req"])
     async def prefix_request(self, ctx: commands.Context, *, content: str = "") -> None:
-        """Deprecated — use /request or /menu instead."""
+        """Submit an intel request — opens the request modal."""
         await ctx.send(
-            embed=error_embed(
-                "The `!request` command has been replaced.\n"
-                "Please use `/request` or `/menu` instead."
-            )
+            embed=error_embed("Use `/request` or `/menu` to submit intel requests.")
         )
 
     @app_commands.command(
@@ -114,15 +104,12 @@ class IntelRequests(commands.Cog):
         self,
         interaction: discord.Interaction,
     ) -> None:
-        conn = get_connection(get_db_path(self.bot))
-        try:
+        with bot_db(self.bot) as conn:
             team = get_team_by_channel(conn, interaction.channel_id)
-        finally:
-            conn.close()
 
         if team is None:
             await interaction.response.send_message(
-                embed=error_embed("This channel is not associated with any team."),
+                embed=error_embed(ERR_NO_TEAM),
                 ephemeral=True,
             )
             return

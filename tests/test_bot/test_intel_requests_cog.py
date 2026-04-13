@@ -172,4 +172,4 @@ async def test_prefix_request_shows_deprecation(cog):
 
     ctx.send.assert_called_once()
     embed = ctx.send.call_args[1]["embed"]
-    assert "replaced" in embed.description
+    assert "/request" in embed.description

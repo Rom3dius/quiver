@@ -10,10 +10,10 @@ from quiver.repositories import attachment_repo, inject_repo, team_repo
 from quiver.services import inject_service, upload_service
 from quiver.validation import MAX_INJECT_CONTENT, MAX_OPERATOR_NAME
 from quiver.web.app import limiter
+from quiver.web.helpers import PER_PAGE, error_html, paginate
+from quiver.web.helpers import teams_by_id as _teams_by_id
 
 bp = Blueprint("injects", __name__, url_prefix="/injects")
-
-PER_PAGE = 10
 
 
 @bp.route("/")
@@ -30,18 +30,18 @@ def create_inject() -> str:
     team_ids = request.form.getlist("team_ids", type=int)
 
     if not content:
-        return _error_html("Inject content cannot be empty.")
+        return error_html("Inject content cannot be empty.")
 
     if len(content) > MAX_INJECT_CONTENT:
-        return _error_html(
+        return error_html(
             f"Inject content too long ({len(content)} chars, max {MAX_INJECT_CONTENT})."
         )
 
     if len(operator) > MAX_OPERATOR_NAME:
-        return _error_html(f"Operator name too long (max {MAX_OPERATOR_NAME} chars).")
+        return error_html(f"Operator name too long (max {MAX_OPERATOR_NAME} chars).")
 
     if not team_ids:
-        return _error_html("Select at least one team.")
+        return error_html("Select at least one team.")
 
     inject = inject_service.send_inject(g.db, content, team_ids, operator)
 
@@ -71,18 +71,15 @@ def inject_history_partial() -> str:
     """HTMX partial: paginated inject history."""
     page = request.args.get("page", 1, type=int)
     total = inject_repo.count(g.db)
-    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
-    offset = (page - 1) * PER_PAGE
+    total_pages, offset = paginate(total, page)
     recent = inject_repo.get_all(g.db, limit=PER_PAGE, offset=offset)
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
+    tbi = _teams_by_id(g.db)
 
     # Enrich each inject with delivery progress and attachment counts
     injects_with_recipients = []
     for inj in recent:
         recipients = inject_repo.get_recipients(g.db, inj.id)
-        team_names = [
-            teams_by_id[r.team_id].name for r in recipients if r.team_id in teams_by_id
-        ]
+        team_names = [tbi[r.team_id].name for r in recipients if r.team_id in tbi]
         delivered_count = sum(1 for r in recipients if r.delivered_at is not None)
         attachments = attachment_repo.get_for_inject(g.db, inj.id)
         injects_with_recipients.append(
@@ -101,14 +98,4 @@ def inject_history_partial() -> str:
         page=page,
         total_pages=total_pages,
         total=total,
-    )
-
-
-def _error_html(message: str) -> str:
-    """Return an inline error div for HTMX responses."""
-    from markupsafe import escape
-
-    return (
-        f'<div class="flash-success" style="border-color:#d9534f;background:#4a2d2d;">'
-        f"{escape(message)}</div>"
     )

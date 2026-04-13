@@ -10,12 +10,13 @@ from discord.ext import commands
 
 from quiver.bot.embeds import error_embed, inter_team_message_embed, message_sent_embed
 from quiver.bot.utils import (
-    get_db_path,
+    ERR_NO_TEAM,
+    ERR_NO_TEAMS_TO_MSG,
+    bot_db,
     get_team_by_channel,
     get_team_channel,
     resolve_team_by_name,
 )
-from quiver.db.connection import get_connection
 from quiver.repositories import team_repo
 from quiver.services import message_service
 from quiver.validation import MAX_MESSAGE_CONTENT
@@ -107,12 +108,9 @@ class Messaging(commands.Cog):
 
     @commands.command(name="msg", aliases=["message"])
     async def prefix_msg(self, ctx: commands.Context, *args: str) -> None:
-        """Deprecated — use /msg or /menu instead."""
+        """Send a message to other teams — use the slash command."""
         await ctx.send(
-            embed=error_embed(
-                "The `!msg` command has been replaced.\n"
-                "Please use `/msg` or `/menu` instead."
-            )
+            embed=error_embed("Use `/msg` or `/menu` to send inter-team messages.")
         )
 
     # Two-step slash flow: first show an ephemeral team selector dropdown,
@@ -120,19 +118,16 @@ class Messaging(commands.Cog):
     # user to type team names manually in a slash command argument.
     @app_commands.command(name="msg", description="Send a message to one or more teams")
     async def slash_msg(self, interaction: discord.Interaction) -> None:
-        conn = get_connection(get_db_path(self.bot))
-        try:
+        with bot_db(self.bot) as conn:
             from_team = get_team_by_channel(conn, interaction.channel_id)
             if from_team is None:
                 await interaction.response.send_message(
-                    embed=error_embed("This channel is not associated with any team."),
+                    embed=error_embed(ERR_NO_TEAM),
                     ephemeral=True,
                 )
                 return
 
             teams = team_repo.get_all(conn)
-        finally:
-            conn.close()
 
         options = [
             discord.SelectOption(label=t.name, value=t.name)
@@ -142,7 +137,7 @@ class Messaging(commands.Cog):
 
         if not options:
             await interaction.response.send_message(
-                embed=error_embed("No other teams available to message."),
+                embed=error_embed(ERR_NO_TEAMS_TO_MSG),
                 ephemeral=True,
             )
             return
@@ -170,11 +165,10 @@ async def _send_to_teams(
             f"Message too long ({len(content)} chars, max {MAX_MESSAGE_CONTENT})."
         )
 
-    conn = get_connection(get_db_path(bot))
-    try:
+    with bot_db(bot) as conn:
         from_team = get_team_by_channel(conn, channel_id)
         if from_team is None:
-            return error_embed("This channel is not associated with any team.")
+            return error_embed(ERR_NO_TEAM)
 
         sent_to: list[str] = []
         errors: list[str] = []
@@ -206,26 +200,23 @@ async def _send_to_teams(
                 content,
             )
 
-        # Partial success: report what succeeded and what failed separately
-        if sent_to and not errors:
-            return message_sent_embed(sent_to, content)
+    if sent_to and not errors:
+        return message_sent_embed(sent_to, content)
 
-        if sent_to and errors:
-            result = message_sent_embed(sent_to, content)
-            result.add_field(
-                name="Errors",
-                value="\n".join(f"\u26a0\ufe0f {e}" for e in errors),
-                inline=False,
-            )
-            return result
-
-        return error_embed(
-            "Could not send to any team:\n"
-            + "\n".join(f"\u2022 {e}" for e in errors)
-            + "\n\nUse `!teams` or `/teams` to see available teams."
+    if sent_to and errors:
+        result = message_sent_embed(sent_to, content)
+        result.add_field(
+            name="Errors",
+            value="\n".join(f"\u26a0\ufe0f {e}" for e in errors),
+            inline=False,
         )
-    finally:
-        conn.close()
+        return result
+
+    return error_embed(
+        "Could not send to any team:\n"
+        + "\n".join(f"\u2022 {e}" for e in errors)
+        + "\n\nUse `/teams` to see available teams."
+    )
 
 
 async def setup(bot: commands.Bot) -> None:

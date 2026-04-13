@@ -8,19 +8,19 @@ from pathlib import Path
 from flask import Blueprint, current_app, g, render_template, request
 from markupsafe import escape
 
-from quiver.repositories import request_repo, team_repo
+from quiver.repositories import request_repo
 from quiver.services import request_service, upload_service
 from quiver.validation import MAX_RESPONSE_TEXT
 from quiver.web.app import limiter
+from quiver.web.helpers import PER_PAGE, error_html, paginate
+from quiver.web.helpers import teams_by_id as _teams_by_id
 
 bp = Blueprint("requests", __name__, url_prefix="/requests")
-
-PER_PAGE = 10
 
 
 @bp.route("/")
 def request_page() -> str:
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
+    teams_by_id = _teams_by_id(g.db)
     pending = request_repo.get_pending(g.db)
     return render_template(
         "pages/requests.html",
@@ -32,7 +32,7 @@ def request_page() -> str:
 @bp.route("/queue")
 def queue_partial() -> str:
     """HTMX partial: full pending request queue for initial load."""
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
+    teams_by_id = _teams_by_id(g.db)
     pending = request_repo.get_pending(g.db)
     return render_template(
         "partials/request_queue.html",
@@ -49,7 +49,7 @@ def queue_sync() -> str:
     - New cards are appended via hx-swap-oob
     - Removed cards are deleted client-side
     """
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
+    teams_by_id = _teams_by_id(g.db)
     pending = request_repo.get_pending(g.db)
     # Incremental sync: the client sends the IDs it already has in the DOM.
     # We diff against the server's current pending set so we only render
@@ -89,10 +89,9 @@ def all_partial() -> str:
     """HTMX partial: paginated all-requests table."""
     page = request.args.get("page", 1, type=int)
     total = request_repo.count(g.db)
-    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
-    offset = (page - 1) * PER_PAGE
+    total_pages, offset = paginate(total, page)
     requests_list = request_repo.get_all(g.db, limit=PER_PAGE, offset=offset)
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
+    teams_by_id = _teams_by_id(g.db)
     return render_template(
         "partials/request_all.html",
         requests=requests_list,
@@ -111,16 +110,16 @@ def resolve(request_id: int) -> str:
     response = request.form.get("response", "").strip() or None
 
     if status not in ("approved", "denied"):
-        return _error_html("Invalid status.")
+        return error_html("Invalid status.")
 
     if response is not None and len(response) > MAX_RESPONSE_TEXT:
-        return _error_html(
+        return error_html(
             f"Response too long ({len(response)} chars, max {MAX_RESPONSE_TEXT})."
         )
 
     result = request_service.resolve_request(g.db, request_id, status, response)
     if result is None:
-        return _error_html("Request not found.")
+        return error_html("Request not found.")
 
     # Handle file uploads
     files = request.files.getlist("attachments")
@@ -129,7 +128,7 @@ def resolve(request_id: int) -> str:
         g.db, uploads_path, files, request_id=request_id
     )
 
-    teams_by_id = {t.id: t for t in team_repo.get_all(g.db)}
+    teams_by_id = _teams_by_id(g.db)
     team = teams_by_id.get(result.team_id)
     team_name = team.name if team else "Unknown"
 
@@ -143,12 +142,4 @@ def resolve(request_id: int) -> str:
         f'<span class="status-badge {badge_class}">{status_label}</span> '
         f"Request #{request_id} from <strong>{escape(team_name)}</strong>{escape(file_note)}"
         f"</div>"
-    )
-
-
-def _error_html(message: str) -> str:
-    """Return an inline error div for HTMX responses."""
-    return (
-        f'<div class="flash-success" style="border-color:#d9534f;background:#4a2d2d;">'
-        f"{escape(message)}</div>"
     )

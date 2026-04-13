@@ -10,8 +10,7 @@ import discord
 from discord.ext import commands, tasks
 
 from quiver.bot.embeds import inject_embed, request_response_embed
-from quiver.bot.utils import get_db_path, get_team_channel
-from quiver.db.connection import get_connection
+from quiver.bot.utils import bot_db, get_team_channel
 from quiver.repositories import (
     attachment_repo,
     heartbeat_repo,
@@ -62,20 +61,16 @@ class InjectDelivery(commands.Cog):
 
     def _write_heartbeat(self) -> None:
         # The dashboard reads this row to show bot online/offline status
-        conn = get_connection(get_db_path(self.bot))
-        try:
+        with bot_db(self.bot) as conn:
             guild_count = len(self.bot.guilds) if self.bot.guilds else 0
             heartbeat_repo.beat(conn, guild_count)
-        finally:
-            conn.close()
 
     @delivery_loop.before_loop
     async def before_delivery_loop(self) -> None:
         await self.bot.wait_until_ready()
 
     async def _deliver_injects(self) -> None:
-        conn = get_connection(get_db_path(self.bot))
-        try:
+        with bot_db(self.bot) as conn:
             undelivered = inject_repo.get_undelivered_recipients(conn)
             if not undelivered:
                 return
@@ -109,7 +104,6 @@ class InjectDelivery(commands.Cog):
                     continue
 
                 try:
-                    # Brief typing indicator so the message feels deliberate
                     async with channel.typing():
                         await asyncio.sleep(1)
 
@@ -129,12 +123,9 @@ class InjectDelivery(commands.Cog):
                     logger.exception(
                         "Failed to deliver inject #%d to %s", inj.id, team.name
                     )
-        finally:
-            conn.close()
 
     async def _deliver_responses(self) -> None:
-        conn = get_connection(get_db_path(self.bot))
-        try:
+        with bot_db(self.bot) as conn:
             undelivered = request_repo.get_undelivered_responses(conn)
             if not undelivered:
                 return
@@ -183,8 +174,6 @@ class InjectDelivery(commands.Cog):
                         req.id,
                         team.name,
                     )
-        finally:
-            conn.close()
 
 
 async def setup(bot: commands.Bot) -> None:
