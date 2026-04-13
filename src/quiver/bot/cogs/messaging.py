@@ -106,19 +106,14 @@ class Messaging(commands.Cog):
         self.bot = bot
 
     @commands.command(name="msg", aliases=["message"])
-    async def prefix_msg(
-        self, ctx: commands.Context, target_teams_str: str, *, content: str
-    ) -> None:
-        """Send a message to one or more teams.
-
-        Usage: !msg <Team1,Team2,...> <message>
-        Examples:
-          !msg CIA We have intel to share
-          !msg CIA,MI6 Joint operation briefing
-        """
-        team_names = [n.strip() for n in target_teams_str.split(",") if n.strip()]
-        result = await _send_to_teams(self.bot, ctx.channel.id, team_names, content)
-        await ctx.send(embed=result)
+    async def prefix_msg(self, ctx: commands.Context, *args: str) -> None:
+        """Deprecated — use /msg or /menu instead."""
+        await ctx.send(
+            embed=error_embed(
+                "The `!msg` command has been replaced.\n"
+                "Please use `/msg` or `/menu` instead."
+            )
+        )
 
     # Two-step slash flow: first show an ephemeral team selector dropdown,
     # then open a modal for the message body.  This avoids requiring the

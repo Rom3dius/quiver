@@ -84,6 +84,7 @@ async def load_cogs(bot: commands.Bot) -> None:
         "quiver.bot.cogs.messaging",
         "quiver.bot.cogs.inject_delivery",
         "quiver.bot.cogs.status",
+        "quiver.bot.cogs.menu",
     ]
     for module in cog_modules:
         await bot.load_extension(module)

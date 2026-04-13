@@ -17,77 +17,118 @@ from quiver.validation import MAX_REQUEST_CONTENT
 logger = logging.getLogger("quiver.bot.intel_requests")
 
 
+async def _handle_request(
+    bot: commands.Bot, channel_id: int, message_id: str | None, content: str
+) -> tuple[discord.Embed, bool]:
+    """Shared logic for modal and slash flows. Returns (embed, success)."""
+    if not content.strip():
+        return error_embed("Request content cannot be empty."), False
+
+    if len(content) > MAX_REQUEST_CONTENT:
+        return (
+            error_embed(
+                f"Request too long ({len(content)} chars, "
+                f"max {MAX_REQUEST_CONTENT})."
+            ),
+            False,
+        )
+
+    conn = get_connection(get_db_path(bot))
+    try:
+        team = get_team_by_channel(conn, channel_id)
+        if team is None:
+            return (
+                error_embed("This channel is not associated with any team."),
+                False,
+            )
+
+        request = request_service.create_request(
+            conn,
+            team_id=team.id,
+            content=content,
+            discord_message_id=message_id,
+        )
+        logger.info(
+            "Intel request #%d from %s: %.80s",
+            request.id,
+            team.name,
+            content,
+        )
+        return request_received_embed(request.id, content), True
+    finally:
+        conn.close()
+
+
+class RequestModal(discord.ui.Modal, title="Submit Intel Request"):
+    """Modal for composing an intel request to C2."""
+
+    content_input = discord.ui.TextInput(
+        label="Intel Request",
+        placeholder="What intelligence do you need from C2?",
+        style=discord.TextStyle.paragraph,
+        required=True,
+        max_length=MAX_REQUEST_CONTENT,
+    )
+
+    def __init__(self, bot: commands.Bot, channel_id: int) -> None:
+        super().__init__()
+        self.bot = bot
+        self.source_channel_id = channel_id
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        embed, _success = await _handle_request(
+            self.bot, self.source_channel_id, None, self.content_input.value
+        )
+        await interaction.response.send_message(embed=embed)
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: Exception
+    ) -> None:
+        logger.exception("RequestModal error: %s", error)
+        await interaction.response.send_message(
+            embed=error_embed("Something went wrong submitting your request."),
+            ephemeral=True,
+        )
+
+
 class IntelRequests(commands.Cog):
     """Handle intel requests from teams."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    async def _handle_request(
-        self, channel_id: int, message_id: str | None, content: str
-    ) -> tuple[discord.Embed, bool]:
-        """Shared logic for prefix and slash commands. Returns (embed, success)."""
-        if not content.strip():
-            return error_embed("Request content cannot be empty."), False
-
-        if len(content) > MAX_REQUEST_CONTENT:
-            return (
-                error_embed(
-                    f"Request too long ({len(content)} chars, "
-                    f"max {MAX_REQUEST_CONTENT})."
-                ),
-                False,
-            )
-
-        conn = get_connection(get_db_path(self.bot))
-        try:
-            team = get_team_by_channel(conn, channel_id)
-            if team is None:
-                return (
-                    error_embed("This channel is not associated with any team."),
-                    False,
-                )
-
-            request = request_service.create_request(
-                conn,
-                team_id=team.id,
-                content=content,
-                discord_message_id=message_id,
-            )
-            logger.info(
-                "Intel request #%d from %s: %.80s",
-                request.id,
-                team.name,
-                content,
-            )
-            return request_received_embed(request.id, content), True
-        finally:
-            conn.close()
-
     @commands.command(name="request", aliases=["req"])
-    async def prefix_request(self, ctx: commands.Context, *, content: str) -> None:
-        """Submit an intelligence request to Command & Control.
-
-        Usage: !request <your request text>
-        """
-        embed, success = await self._handle_request(
-            ctx.channel.id, str(ctx.message.id), content
+    async def prefix_request(self, ctx: commands.Context, *, content: str = "") -> None:
+        """Deprecated — use /request or /menu instead."""
+        await ctx.send(
+            embed=error_embed(
+                "The `!request` command has been replaced.\n"
+                "Please use `/request` or `/menu` instead."
+            )
         )
-        await ctx.send(embed=embed)
 
     @app_commands.command(
         name="request", description="Submit an intelligence request to C2"
     )
-    @app_commands.describe(content="Your intel request — what do you need?")
     async def slash_request(
         self,
         interaction: discord.Interaction,
-        content: app_commands.Range[str, 1, MAX_REQUEST_CONTENT],
     ) -> None:
-        embed, success = await self._handle_request(
-            interaction.channel_id, None, content
-        )
-        await interaction.response.send_message(embed=embed)
+        conn = get_connection(get_db_path(self.bot))
+        try:
+            team = get_team_by_channel(conn, interaction.channel_id)
+        finally:
+            conn.close()
+
+        if team is None:
+            await interaction.response.send_message(
+                embed=error_embed("This channel is not associated with any team."),
+                ephemeral=True,
+            )
+            return
+
+        modal = RequestModal(self.bot, interaction.channel_id)
+        await interaction.response.send_modal(modal)
 
 
 async def setup(bot: commands.Bot) -> None:

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import discord
 import pytest
 
-from quiver.bot.cogs.messaging import _send_to_teams
+from quiver.bot.cogs.messaging import Messaging, _send_to_teams
 from quiver.db.connection import get_connection
 from quiver.repositories import team_repo
 
@@ -110,3 +110,22 @@ async def test_partial_failure(bot, db_path, teams):
     assert "Message" in field_values
     assert "Errors" in field_values
     assert "not found" in field_values["Errors"]
+
+
+# --- Deprecated prefix_msg ---
+
+
+@pytest.fixture
+def messaging_cog(bot):
+    return Messaging(bot)
+
+
+@pytest.mark.asyncio
+async def test_prefix_msg_shows_deprecation(messaging_cog):
+    ctx = MagicMock()
+    ctx.send = AsyncMock()
+    await messaging_cog.prefix_msg.callback(messaging_cog, ctx, "Team1", "hello")
+
+    ctx.send.assert_called_once()
+    embed = ctx.send.call_args[1]["embed"]
+    assert "replaced" in embed.description

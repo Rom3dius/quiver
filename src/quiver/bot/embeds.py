@@ -73,31 +73,60 @@ def inter_team_message_embed(from_team_name: str, content: str) -> discord.Embed
     return embed
 
 
-def status_embed(team_name: str, channel_id: int) -> discord.Embed:
-    embed = discord.Embed(
-        title=f"Team: {team_name}",
-        colour=COLOUR_INFO,
-    )
-    embed.add_field(name="Channel", value=f"<#{channel_id}>", inline=True)
-    embed.add_field(
-        name="Commands",
-        value=(
-            "`!request <text>` or `/request` — Submit intel request\n"
-            "`!msg <Team1,Team2> <text>` or `/msg` — Message one or more teams\n"
-            "`!teams` or `/teams` — List all teams\n"
-            "`!status` or `/status` — Show this info\n"
-            "`!help` — Full command list"
-        ),
-        inline=False,
-    )
-    return embed
-
-
 def teams_list_embed(team_names: list[str]) -> discord.Embed:
     embed = discord.Embed(
         title=f"Teams ({len(team_names)})",
         description=", ".join(team_names),
         colour=COLOUR_INFO,
+    )
+    return embed
+
+
+def admin_status_embed(
+    bot_online: bool,
+    bot_age_seconds: int | None,
+    guild_count: int,
+    team_count: int,
+    inject_total: int,
+    inject_pending: int,
+    request_summary: dict[str, int],
+    message_count: int,
+) -> discord.Embed:
+    bot_indicator = "ONLINE" if bot_online else "OFFLINE"
+    age_str = f" ({bot_age_seconds}s ago)" if bot_age_seconds is not None else ""
+    embed = discord.Embed(
+        title="Game Status",
+        colour=COLOUR_INFO,
+    )
+    embed.add_field(
+        name="System",
+        value=(
+            f"Bot: **{bot_indicator}**{age_str}\n"
+            f"Guilds: {guild_count} | Teams: {team_count}"
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Injects",
+        value=f"Total: {inject_total} | Pending delivery: {inject_pending}",
+        inline=False,
+    )
+    total = request_summary["total"]
+    pending = request_summary["pending"]
+    approved = request_summary["approved"]
+    denied = request_summary["denied"]
+    embed.add_field(
+        name="Intel Requests",
+        value=(
+            f"Total: {total} | Pending: {pending}\n"
+            f"Approved: {approved} | Denied: {denied}"
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Comms",
+        value=f"Inter-team messages: {message_count}",
+        inline=False,
     )
     return embed
 
