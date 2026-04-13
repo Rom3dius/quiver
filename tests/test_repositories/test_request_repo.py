@@ -73,3 +73,23 @@ def test_mark_response_delivered(conn, teams):
 
     undelivered = request_repo.get_undelivered_responses(conn)
     assert len(undelivered) == 0
+
+
+def test_request_summary_empty(conn):
+    summary = request_repo.request_summary(conn)
+    assert summary == {"total": 0, "pending": 0, "approved": 0, "denied": 0}
+
+
+def test_request_summary_mixed(conn, teams):
+    team = teams[0]
+    request_repo.create(conn, team.id, "Pending request")
+    r2 = request_repo.create(conn, team.id, "Approved request")
+    r3 = request_repo.create(conn, team.id, "Denied request")
+    request_repo.resolve(conn, r2.id, "approved", "OK")
+    request_repo.resolve(conn, r3.id, "denied", "No")
+
+    summary = request_repo.request_summary(conn)
+    assert summary["total"] == 3
+    assert summary["pending"] == 1
+    assert summary["approved"] == 1
+    assert summary["denied"] == 1

@@ -89,3 +89,11 @@ INSERT OR IGNORE INTO bot_heartbeat (id) VALUES (1);
 
 CREATE INDEX IF NOT EXISTS idx_game_events_type
     ON game_events(event_type, created_at);
+
+CREATE TABLE IF NOT EXISTS game_state (
+    id         INTEGER PRIMARY KEY CHECK(id = 1),
+    started_at TEXT,
+    ended_at   TEXT
+);
+
+INSERT OR IGNORE INTO game_state (id) VALUES (1);

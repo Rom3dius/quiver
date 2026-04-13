@@ -74,6 +74,24 @@ def resolve(
     return get_by_id(conn, request_id)
 
 
+def request_summary(conn: sqlite3.Connection) -> dict[str, int]:
+    """Return aggregate counts: total, pending, approved, denied."""
+    row = conn.execute(
+        """SELECT
+               COUNT(*) as total,
+               COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+               COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
+               COUNT(CASE WHEN status = 'denied' THEN 1 END) as denied
+           FROM intel_requests"""
+    ).fetchone()
+    return {
+        "total": row["total"],
+        "pending": row["pending"],
+        "approved": row["approved"],
+        "denied": row["denied"],
+    }
+
+
 def get_undelivered_responses(conn: sqlite3.Connection) -> list[IntelRequest]:
     """Get resolved requests whose response has not been delivered to Discord.
 

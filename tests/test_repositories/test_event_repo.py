@@ -60,3 +60,27 @@ def test_pagination(conn):
     assert len(page1) == 3
     assert len(page2) == 3
     assert page1[0].id != page2[0].id
+
+
+def test_get_rate_buckets(conn):
+    """Rate buckets return counts grouped by minute."""
+    # Events created with default 'now' all land in the same minute bucket
+    event_repo.log(conn, "inject_sent")
+    event_repo.log(conn, "inject_sent")
+    event_repo.log(conn, "request_created")
+
+    buckets = event_repo.get_rate_buckets(conn, minutes=30)
+    assert isinstance(buckets, list)
+    assert len(buckets) >= 1
+    total = sum(b["count"] for b in buckets)
+    assert total == 3
+    # Each bucket should have the expected keys
+    for b in buckets:
+        assert "bucket" in b
+        assert "count" in b
+
+
+def test_get_rate_buckets_empty(conn):
+    """No events yields empty list."""
+    buckets = event_repo.get_rate_buckets(conn, minutes=5)
+    assert buckets == []

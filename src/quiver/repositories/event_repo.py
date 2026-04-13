@@ -76,3 +76,23 @@ def count(
         f"SELECT COUNT(*) as cnt FROM game_events {where}", params
     ).fetchone()
     return row["cnt"]
+
+
+def get_rate_buckets(
+    conn: sqlite3.Connection, minutes: int = 30, bucket_size: int = 1
+) -> list[dict]:
+    """Return event counts per minute bucket for the last N minutes.
+
+    Returns list of {"bucket": "HH:MM", "count": N} dicts ordered by time.
+    """
+    rows = conn.execute(
+        """SELECT
+               substr(created_at, 12, 5) as bucket,
+               COUNT(*) as count
+           FROM game_events
+           WHERE created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)
+           GROUP BY bucket
+           ORDER BY bucket""",
+        (f"-{minutes} minutes",),
+    ).fetchall()
+    return [{"bucket": r["bucket"], "count": r["count"]} for r in rows]

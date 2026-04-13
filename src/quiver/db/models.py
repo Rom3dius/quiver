@@ -163,3 +163,17 @@ class Attachment:
     @property
     def is_image(self) -> bool:
         return bool(self.content_type and self.content_type.startswith("image/"))
+
+
+@dataclass(frozen=True)
+class GameState:
+    started_at: datetime | None
+    ended_at: datetime | None
+
+    @classmethod
+    def from_row(cls, row: dict | object) -> GameState:
+        r = dict(row)
+        return cls(
+            started_at=_parse_ts(r.get("started_at")),
+            ended_at=_parse_ts(r.get("ended_at")),
+        )

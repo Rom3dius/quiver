@@ -22,6 +22,7 @@ class Config:
     flask_host: str
     flask_port: int
     flask_secret_key: str
+    admin_role_name: str
 
 
 def load_config(env_path: str | None = None) -> Config:
@@ -55,4 +56,5 @@ def load_config(env_path: str | None = None) -> Config:
         flask_host=os.environ.get("FLASK_HOST", "127.0.0.1"),
         flask_port=int(os.environ.get("FLASK_PORT", "5000")),
         flask_secret_key=flask_secret_key,
+        admin_role_name=os.environ.get("ADMIN_ROLE_NAME", "C2 Operator"),
     )
