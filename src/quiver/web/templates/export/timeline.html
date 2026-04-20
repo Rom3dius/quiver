@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiver — Wargame Timeline</title>
+<style>
+/* ── Minimal reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body { line-height: 1.6; min-height: 100vh; }
+
+/* ── Quiver design tokens (inlined from style.css) ── */
+{{ css_content | safe }}
+
+/* ── Export-specific overrides ── */
+body {
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    background: var(--q-bg);
+    color: var(--q-text);
+    padding: 0;
+}
+
+/* ── Header ── */
+.tl-header {
+    background: var(--q-nav-bg);
+    color: var(--q-nav-text);
+    padding: 2rem 2rem 1.5rem;
+    border-bottom: 3px solid var(--q-primary);
+}
+.tl-header h1 {
+    font-size: 1.8rem;
+    letter-spacing: 0.1em;
+    color: var(--q-primary);
+    margin-bottom: 0.25rem;
+}
+.tl-header .subtitle {
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+.tl-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+.tl-meta dt { font-weight: 600; color: var(--q-primary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.tl-meta dd { margin: 0; }
+
+/* ── Stats bar ── */
+.tl-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem 2rem;
+    background: var(--q-bg-surface);
+    border-bottom: 1px solid var(--q-border);
+}
+.tl-stat {
+    text-align: center;
+    min-width: 100px;
+}
+.tl-stat .num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--q-primary);
+    line-height: 1.2;
+}
+.tl-stat .lbl {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--q-text-muted);
+}
+
+/* ── Controls bar ── */
+.tl-controls {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--q-bg);
+    border-bottom: 1px solid var(--q-border);
+    padding: 0.75rem 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+.tl-controls .group-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--q-text-muted);
+    font-weight: 600;
+    margin-right: 0.25rem;
+}
+.tl-controls .sep {
+    width: 1px;
+    height: 1.5rem;
+    background: var(--q-border);
+    margin: 0 0.25rem;
+}
+
+/* ── Filter buttons ── */
+.filter-btn {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--q-border);
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    background: transparent;
+    color: var(--q-text);
+    transition: all 0.15s;
+    font-family: inherit;
+}
+.filter-btn:hover {
+    border-color: var(--q-primary);
+}
+.filter-btn.active {
+    background: var(--q-primary);
+    color: #fff;
+    border-color: var(--q-primary);
+}
+.filter-btn.text-btn {
+    border: none;
+    text-decoration: underline;
+    padding: 0.2rem 0.4rem;
+    color: var(--q-primary);
+}
+.filter-btn.text-btn:hover {
+    opacity: 0.8;
+}
+
+/* ── Timeline body ── */
+.tl-body {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+}
+
+/* ── Hour markers ── */
+.hour-marker {
+    position: sticky;
+    top: 3rem;
+    z-index: 50;
+    background: var(--q-bg);
+    padding: 0.5rem 0;
+    margin: 1.5rem 0 0.5rem;
+    border-bottom: 2px solid var(--q-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--q-primary);
+    letter-spacing: 0.05em;
+}
+.hour-marker:first-child { margin-top: 0; }
+
+/* ── Time blocks ── */
+.time-block {
+    margin-bottom: 0.25rem;
+    border-left: 3px solid var(--q-border);
+    transition: border-color 0.15s;
+}
+.time-block:hover {
+    border-left-color: var(--q-primary);
+}
+.block-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    background: var(--q-bg-surface);
+    border-radius: 0 0.25rem 0.25rem 0;
+    transition: background 0.15s;
+}
+.block-header:hover {
+    background: var(--q-bg-surface-hover);
+}
+.block-toggle {
+    font-size: 0.7rem;
+    color: var(--q-text-muted);
+    transition: transform 0.2s;
+    width: 1rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+.time-block.open .block-toggle {
+    transform: rotate(90deg);
+}
+.block-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--q-text);
+    white-space: nowrap;
+}
+.block-badges {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.block-badge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.2rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.block-badge.injects { background: rgba(75, 156, 211, 0.2); color: var(--q-primary); }
+.block-badge.requests { background: rgba(46, 125, 79, 0.2); color: var(--q-accent-success); }
+.block-badge.messages { background: rgba(199, 140, 6, 0.2); color: var(--q-accent-warning); }
+.block-badge.system { background: rgba(90, 106, 126, 0.15); color: var(--q-text-muted); }
+.block-count {
+    font-size: 0.8rem;
+    color: var(--q-text-muted);
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* ── Block content (collapsed by default) ── */
+.block-content {
+    display: none;
+    padding: 0.25rem 0 0.5rem 1rem;
+}
+.time-block.open .block-content {
+    display: block;
+}
+
+/* ── Individual events ── */
+.tl-event {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--q-border);
+    align-items: start;
+}
+.tl-event:last-child {
+    border-bottom: none;
+}
+.ev-icon {
+    font-size: 1.1rem;
+    text-align: center;
+    padding-top: 0.1rem;
+}
+.ev-body {
+    min-width: 0;
+}
+.ev-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+    font-size: 0.85rem;
+}
+.ev-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--q-text-muted);
+}
+.ev-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+.ev-team {
+    font-size: 0.8rem;
+    color: var(--q-primary);
+    font-weight: 500;
+}
+.ev-summary {
+    font-size: 0.85rem;
+    color: var(--q-text);
+    margin-top: 0.15rem;
+}
+.ev-content {
+    margin-top: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--q-bg-surface);
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    border-left: 2px solid var(--q-primary);
+}
+.ev-content.collapsed {
+    max-height: 3rem;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+}
+.ev-content.collapsed::after {
+    content: "Click to expand...";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem 0.75rem 0.25rem;
+    background: linear-gradient(transparent, var(--q-bg-surface));
+    font-size: 0.75rem;
+    color: var(--q-primary);
+    font-style: italic;
+}
+
+/* ── Event type colors (left accent on labels) ── */
+.ev-label.inject_sent, .ev-label.inject_delivered { color: var(--q-primary); }
+.ev-label.request_created, .ev-label.request_resolved, .ev-label.response_delivered { color: var(--q-accent-success); }
+.ev-label.inter_team_msg { color: var(--q-accent-warning); }
+.ev-label.game_started, .ev-label.game_ended { color: var(--q-text-muted); }
+
+/* ── Footer ── */
+.tl-footer {
+    text-align: center;
+    padding: 2rem;
+    font-size: 0.8rem;
+    color: var(--q-text-muted);
+    border-top: 1px solid var(--q-border);
+    margin-top: 2rem;
+}
+
+/* ── Hidden by filter ── */
+.tl-event.hidden { display: none; }
+.time-block.hidden { display: none; }
+
+/* ── Theme toggle in controls ── */
+.theme-toggle-export {
+    background: none;
+    border: 1px solid var(--q-border);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.15rem 0.4rem;
+    color: var(--q-text);
+    line-height: 1;
+    margin-left: auto;
+}
+
+/* ── Print styles ── */
+@media print {
+    .tl-controls { display: none; }
+    .block-content { display: block !important; }
+    .ev-content.collapsed { max-height: none; overflow: visible; }
+    .ev-content.collapsed::after { display: none; }
+    .time-block { break-inside: avoid; }
+    .hour-marker { position: static; }
+    body { font-size: 11pt; }
+}
+
+/* ── Empty state ── */
+.tl-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--q-text-muted);
+    font-size: 1.1rem;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="tl-header">
+    <h1>QUIVER</h1>
+    <div class="subtitle">Wargame After-Action Timeline</div>
+    <dl class="tl-meta">
+        {% if game_state and game_state.started_at %}
+        <div>
+            <dt>Started</dt>
+            <dd>{{ game_state.started_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+        </div>
+        {% endif %}
+        {% if game_state and game_state.ended_at %}
+        <div>
+            <dt>Ended</dt>
+            <dd>{{ game_state.ended_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+        </div>
+        {% endif %}
+        {% if duration_str %}
+        <div>
+            <dt>Duration</dt>
+            <dd>{{ duration_str }}</dd>
+        </div>
+        {% endif %}
+        <div>
+            <dt>Teams</dt>
+            <dd>{{ teams | map(attribute='name') | join(', ') }}</dd>
+        </div>
+    </dl>
+</header>
+
+<!-- ── Stats ── -->
+<section class="tl-stats">
+    <div class="tl-stat">
+        <div class="num">{{ stats.total_events }}</div>
+        <div class="lbl">Events</div>
+    </div>
+    <div class="tl-stat">
+        <div class="num">{{ stats.total_injects }}</div>
+        <div class="lbl">Injects</div>
+    </div>
+    <div class="tl-stat">
+        <div class="num">{{ stats.requests_total }}</div>
+        <div class="lbl">Requests</div>
+    </div>
+    <div class="tl-stat">
+        <div class="num">{{ stats.requests_approved }}</div>
+        <div class="lbl">Approved</div>
+    </div>
+    <div class="tl-stat">
+        <div class="num">{{ stats.requests_denied }}</div>
+        <div class="lbl">Denied</div>
+    </div>
+    <div class="tl-stat">
+        <div class="num">{{ stats.total_messages }}</div>
+        <div class="lbl">Messages</div>
+    </div>
+</section>
+
+<!-- ── Controls ── -->
+<div class="tl-controls" id="controls">
+    <span class="group-label">View</span>
+    <button class="filter-btn text-btn" onclick="expandAll()">Expand All</button>
+    <button class="filter-btn text-btn" onclick="collapseAll()">Collapse All</button>
+
+    <span class="sep"></span>
+    <span class="group-label">Teams</span>
+    {% for team in teams %}
+    <button class="filter-btn active team-filter" data-team="{{ team.name }}" onclick="toggleTeam(this)">
+        {{ team.name }}
+    </button>
+    {% endfor %}
+
+    <span class="sep"></span>
+    <span class="group-label">Types</span>
+    <button class="filter-btn active type-filter" data-types="injects" onclick="toggleType(this)">Injects</button>
+    <button class="filter-btn active type-filter" data-types="requests" onclick="toggleType(this)">Requests</button>
+    <button class="filter-btn active type-filter" data-types="messages" onclick="toggleType(this)">Messages</button>
+    <button class="filter-btn active type-filter" data-types="system" onclick="toggleType(this)">System</button>
+
+    <button class="theme-toggle-export" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon">&#x2600;</span>
+    </button>
+</div>
+
+<!-- ── Timeline ── -->
+<main class="tl-body" id="timeline">
+    {% if not blocks %}
+    <div class="tl-empty">No events recorded.</div>
+    {% endif %}
+
+    {% set ns = namespace(current_hour='') %}
+    {% for block in blocks %}
+        {# Hour marker #}
+        {% set block_hour = block.start.strftime('%H:00') %}
+        {% if block_hour != ns.current_hour %}
+            {% set ns.current_hour = block_hour %}
+            <div class="hour-marker">{{ block.start.strftime('%Y-%m-%d') }} &mdash; {{ block_hour }}</div>
+        {% endif %}
+
+        <div class="time-block" data-block-idx="{{ loop.index0 }}">
+            <div class="block-header" onclick="toggleBlock(this.parentElement)">
+                <span class="block-toggle">&#x25B6;</span>
+                <span class="block-time">{{ block.start.strftime('%H:%M') }}&ndash;{{ block.end.strftime('%H:%M') }}</span>
+                <span class="block-badges">
+                    {% if block.inject_count %}<span class="block-badge injects">{{ block.inject_count }} inject{{ 's' if block.inject_count != 1 }}</span>{% endif %}
+                    {% if block.request_count %}<span class="block-badge requests">{{ block.request_count }} request{{ 's' if block.request_count != 1 }}</span>{% endif %}
+                    {% if block.message_count %}<span class="block-badge messages">{{ block.message_count }} msg{{ 's' if block.message_count != 1 }}</span>{% endif %}
+                    {% if block.system_count %}<span class="block-badge system">{{ block.system_count }} sys</span>{% endif %}
+                </span>
+                <span class="block-count">{{ block.entries | length }} event{{ 's' if block.entries | length != 1 }}</span>
+            </div>
+            <div class="block-content">
+                {% for entry in block.entries %}
+                <div class="tl-event"
+                     data-team="{{ entry.team_name or '' }}"
+                     data-etype="{{ entry.event_type }}">
+                    <div class="ev-icon">{{ entry.icon }}</div>
+                    <div class="ev-body">
+                        <div class="ev-head">
+                            <span class="ev-time">{{ entry.timestamp.strftime('%H:%M:%S') }}</span>
+                            <span class="ev-label {{ entry.event_type }}">{{ entry.label }}</span>
+                            {% if entry.team_name %}
+                            <span class="ev-team">{{ entry.team_name }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="ev-summary">{{ entry.summary }}</div>
+                        {% if entry.content %}
+                        <div class="ev-content{% if entry.content | length > 150 %} collapsed{% endif %}"
+                             {% if entry.content | length > 150 %}onclick="this.classList.toggle('collapsed')"{% endif %}
+                            >{{ entry.content }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+</main>
+
+<footer class="tl-footer">
+    Quiver C2 &mdash; Wargame Timeline &mdash; Generated {{ generated_at }}
+</footer>
+
+<script>
+/* ── Theme toggle ── */
+(function() {
+    var saved = localStorage.getItem('quiver-export-theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+    updateThemeIcon();
+})();
+
+function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme');
+    var next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('quiver-export-theme', next);
+    updateThemeIcon();
+}
+
+function updateThemeIcon() {
+    var icon = document.getElementById('theme-icon');
+    if (!icon) return;
+    var theme = document.documentElement.getAttribute('data-theme');
+    icon.innerHTML = theme === 'dark' ? '&#x2600;' : '&#x1F319;';
+}
+
+/* ── Block expand/collapse ── */
+function toggleBlock(el) {
+    el.classList.toggle('open');
+}
+
+function expandAll() {
+    document.querySelectorAll('.time-block').forEach(function(b) {
+        b.classList.add('open');
+    });
+}
+
+function collapseAll() {
+    document.querySelectorAll('.time-block').forEach(function(b) {
+        b.classList.remove('open');
+    });
+}
+
+/* ── Filtering ── */
+var EVENT_CATEGORIES = {{ event_categories | tojson }};
+
+function toggleTeam(btn) {
+    btn.classList.toggle('active');
+    applyFilters();
+}
+
+function toggleType(btn) {
+    btn.classList.toggle('active');
+    applyFilters();
+}
+
+function applyFilters() {
+    /* Gather active teams */
+    var activeTeams = new Set();
+    document.querySelectorAll('.team-filter.active').forEach(function(b) {
+        activeTeams.add(b.getAttribute('data-team'));
+    });
+
+    /* Gather active event types */
+    var activeTypes = new Set();
+    document.querySelectorAll('.type-filter.active').forEach(function(b) {
+        var cat = b.getAttribute('data-types');
+        var types = EVENT_CATEGORIES[cat] || [];
+        types.forEach(function(t) { activeTypes.add(t); });
+    });
+
+    /* Filter individual events */
+    document.querySelectorAll('.tl-event').forEach(function(ev) {
+        var team = ev.getAttribute('data-team');
+        var etype = ev.getAttribute('data-etype');
+        var teamOk = !team || activeTeams.has(team);
+        var typeOk = activeTypes.has(etype);
+        ev.classList.toggle('hidden', !(teamOk && typeOk));
+    });
+
+    /* Hide blocks where all events are hidden */
+    document.querySelectorAll('.time-block').forEach(function(block) {
+        var events = block.querySelectorAll('.tl-event');
+        var anyVisible = false;
+        events.forEach(function(ev) {
+            if (!ev.classList.contains('hidden')) anyVisible = true;
+        });
+        block.classList.toggle('hidden', !anyVisible);
+    });
+}
+</script>
+
+</body>
+</html>
