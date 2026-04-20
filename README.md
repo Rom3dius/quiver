@@ -4,15 +4,17 @@ Intelligence wargame management system powered by Discord and a web-based C2 das
 
 ## Features
 
-- **Discord bot** for team interaction via prefix (`!`) and slash (`/`) commands
-- **Web dashboard** (Flask + HTMX) for Command & Control operators
+- **Discord bot** for team interaction via prefix (`!`) and slash (`/`) commands, unified under a `/menu` command hub
+- **Live operations dashboard** (Flask + HTMX) with real-time counters, team activity feed, event timeline, and communication network graph
+- **Game state controls** -- start/stop game clock from the dashboard
 - **Intel inject system** -- compose injects on the web, deliver to teams via Discord
 - **Intel request queue** -- teams submit requests in Discord, operators approve/deny on the web
 - **Inter-team messaging** -- teams communicate through the bot with full audit logging
 - **File attachments** on injects and request responses (up to 50 MB)
-- **Live updates** -- dashboard polls for changes without requiring page refresh
 - **Game event log** -- filterable, paginated, grouped timeline of all wargame activity
+- **Post-game timeline export** -- self-contained HTML timeline and database snapshot for after-action review
 - **Bot heartbeat monitoring** -- dashboard shows real-time bot online/offline status
+- **Light/dark theme** -- toggle in the dashboard nav
 - **SQLite with WAL mode** -- both processes safely share a single database file
 
 ## Quick Start
@@ -41,16 +43,18 @@ cp .env.example .env
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (or copy `.env.example`):
 
-```
-DISCORD_TOKEN=your-bot-token-here
-DATABASE_PATH=quiver.db
-BOT_COMMAND_PREFIX=!
-FLASK_HOST=127.0.0.1
-FLASK_PORT=5000
-UPLOADS_PATH=uploads
-```
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `DISCORD_TOKEN` | yes | -- | Discord bot token |
+| `BOT_COMMAND_PREFIX` | no | `!` | Prefix for text commands |
+| `ADMIN_ROLE_NAME` | no | `C2 Operator` | Discord role name for admin commands |
+| `DATABASE_PATH` | no | `quiver.db` | SQLite database file path |
+| `FLASK_HOST` | no | `127.0.0.1` | Web dashboard bind address |
+| `FLASK_PORT` | no | `5000` | Web dashboard port |
+| `FLASK_SECRET_KEY` | no | random | Session signing key (random per restart if unset) |
+| `UPLOADS_PATH` | no | `uploads/` | File upload storage directory (auto-created) |
 
 ### Initialize the Database
 
@@ -97,8 +101,8 @@ polling loop that checks the database for pending injects and approved/denied
 request responses, then delivers them to the appropriate team channels.
 
 **Flask web app** -- serves the C2 dashboard where operators compose injects,
-approve or deny intel requests, and monitor game activity. Uses HTMX for
-live partial updates without full page reloads.
+approve or deny intel requests, manage the game clock, and monitor activity.
+Uses HTMX for live partial updates without full page reloads.
 
 **SQLite (WAL mode)** -- both processes connect to the same database file.
 WAL (Write-Ahead Logging) mode allows concurrent readers and a single writer
@@ -108,42 +112,44 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 
 ## Discord Commands
 
-### Prefix Commands
-
-| Command                     | Description                                    |
-| --------------------------- | ---------------------------------------------- |
-| `!request <text>`           | Submit an intel request to C2                  |
-| `!msg <Team1,Team2> <text>` | Send a message to one or more teams            |
-| `!status`                   | Show your team identity and available commands |
-| `!teams`                    | List all teams in the wargame                  |
-| `!help`                     | Show the full command list                     |
-
 ### Slash Commands
 
 | Command    | Description                                           |
-| ---------- | ----------------------------------------------------- |
-| `/request` | Submit an intel request (text input)                  |
+|------------|-------------------------------------------------------|
+| `/menu`    | Button-based command hub (request, message, teams)    |
+| `/request` | Submit an intel request (modal text input)            |
 | `/msg`     | Send a message (team select menu, then compose modal) |
-| `/status`  | Show your team identity                               |
-| `/teams`   | List all teams                                        |
+| `/status`  | Game status dashboard (admin only -- requires C2 Operator role) |
+| `/teams`   | List all teams in the wargame                         |
+
+### Prefix Commands
+
+| Command   | Description                                    |
+|-----------|------------------------------------------------|
+| `!menu`   | Open the command hub                           |
+| `!status` | Game status dashboard (admin only)             |
+| `!teams`  | List all teams in the wargame                  |
+| `!help`   | Show the full command list                     |
+
+> `!request` and `!msg` redirect to their slash equivalents which use modals for multi-line input.
 
 See [docs/discord-commands.md](docs/discord-commands.md) for detailed usage and examples.
 
 ## Web Dashboard Pages
 
-| Page      | URL         | Purpose                                            |
-| --------- | ----------- | -------------------------------------------------- |
-| Dashboard | `/`         | Stats overview, bot status, recent activity        |
-| Injects   | `/injects`  | Compose and send injects to teams                  |
-| Requests  | `/requests` | Pending request queue, approve/deny with responses |
-| Game Log  | `/log`      | Filterable, paginated timeline of all events       |
-| Teams     | `/teams`    | Team overview with activity and channel status     |
+| Page      | URL         | Purpose                                                              |
+|-----------|-------------|----------------------------------------------------------------------|
+| Dashboard | `/`         | Live operations display: game clock, counters, team activity, timeline, comms graph |
+| Injects   | `/injects`  | Compose and send injects to teams                                    |
+| Requests  | `/requests` | Pending request queue, approve/deny with responses                   |
+| Game Log  | `/log`      | Filterable, paginated timeline of all events                         |
+| Teams     | `/teams`    | Team overview with activity and channel status                       |
 
 See [docs/web-dashboard.md](docs/web-dashboard.md) for page details.
 
 ## Data Model
 
-Eight tables track all wargame state:
+Nine tables track all wargame state:
 
 - `teams` -- team roster with Discord channel mappings
 - `injects` -- intel injects created by C2 operators
@@ -153,6 +159,7 @@ Eight tables track all wargame state:
 - `game_events` -- full audit log of all wargame activity
 - `attachments` -- file metadata for inject and response attachments
 - `bot_heartbeat` -- single-row table tracking bot liveness
+- `game_state` -- game clock start/stop tracking
 
 See [docs/data-model.md](docs/data-model.md) for schema details.
 
@@ -171,6 +178,23 @@ pytest -v
 pytest tests/test_services/test_inject_service.py
 ```
 
+### Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/init_db.py` | Initialize or reset the database with schema and seed data |
+| `scripts/run_all.py` | Launch both bot and web as coordinated subprocesses |
+| `scripts/run_bot.py` | Launch the Discord bot only |
+| `scripts/run_web.py` | Launch the Flask web dashboard only |
+| `scripts/export_timeline.py` | Export a self-contained HTML timeline + database snapshot for after-action review |
+
+Export usage:
+
+```bash
+python scripts/export_timeline.py
+python scripts/export_timeline.py --db quiver.db --out exports/
+```
+
 ### Project Structure
 
 ```
@@ -180,6 +204,7 @@ quiver/
     run_all.py              # Launch both processes
     run_bot.py              # Launch bot only
     run_web.py              # Launch web only
+    export_timeline.py      # Post-game timeline export
   src/quiver/
     config.py               # Environment-based configuration
     logging_config.py       # Shared logging setup
@@ -195,7 +220,7 @@ quiver/
       main.py               # Bot creation and startup
       embeds.py             # Discord embed builders
       utils.py              # Channel/team resolution helpers
-      cogs/                 # Command modules (intel_requests, messaging, etc.)
+      cogs/                 # Command modules (menu, messaging, intel_requests, etc.)
     web/
       app.py                # Flask application factory
       routes/               # Blueprint modules (dashboard, injects, requests, etc.)
@@ -203,6 +228,7 @@ quiver/
       static/               # CSS
   tests/                    # pytest test suite
   uploads/                  # File attachment storage (gitignored)
+  exports/                  # Timeline exports (gitignored)
 ```
 
 ## Documentation
