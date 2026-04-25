@@ -15,12 +15,22 @@ def create(
     size_bytes: int | None = None,
     inject_id: int | None = None,
     request_id: int | None = None,
+    message_id: int | None = None,
 ) -> Attachment:
     cursor = conn.execute(
         """INSERT INTO attachments
-           (inject_id, request_id, filename, stored_path, content_type, size_bytes)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (inject_id, request_id, filename, stored_path, content_type, size_bytes),
+           (inject_id, request_id, message_id, filename, stored_path,
+            content_type, size_bytes)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (
+            inject_id,
+            request_id,
+            message_id,
+            filename,
+            stored_path,
+            content_type,
+            size_bytes,
+        ),
     )
     conn.commit()
     row = conn.execute(
@@ -41,5 +51,13 @@ def get_for_request(conn: sqlite3.Connection, request_id: int) -> list[Attachmen
     rows = conn.execute(
         "SELECT * FROM attachments WHERE request_id = ? ORDER BY id",
         (request_id,),
+    ).fetchall()
+    return [Attachment.from_row(r) for r in rows]
+
+
+def get_for_message(conn: sqlite3.Connection, message_id: int) -> list[Attachment]:
+    rows = conn.execute(
+        "SELECT * FROM attachments WHERE message_id = ? ORDER BY id",
+        (message_id,),
     ).fetchall()
     return [Attachment.from_row(r) for r in rows]

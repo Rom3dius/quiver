@@ -140,6 +140,7 @@ class Attachment:
     id: int
     inject_id: int | None
     request_id: int | None
+    message_id: int | None
     filename: str
     stored_path: str
     content_type: str | None
@@ -153,6 +154,7 @@ class Attachment:
             id=r["id"],
             inject_id=r.get("inject_id"),
             request_id=r.get("request_id"),
+            message_id=r.get("message_id"),
             filename=r["filename"],
             stored_path=r["stored_path"],
             content_type=r.get("content_type"),

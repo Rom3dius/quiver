@@ -62,14 +62,16 @@ CREATE TABLE IF NOT EXISTS attachments (
     id           INTEGER PRIMARY KEY,
     inject_id    INTEGER REFERENCES injects(id),
     request_id   INTEGER REFERENCES intel_requests(id),
+    message_id   INTEGER REFERENCES inter_team_messages(id),
     filename     TEXT NOT NULL,
     stored_path  TEXT NOT NULL,
     content_type TEXT,
     size_bytes   INTEGER,
     created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     CHECK(
-        (inject_id IS NOT NULL AND request_id IS NULL) OR
-        (inject_id IS NULL AND request_id IS NOT NULL)
+        (inject_id IS NOT NULL AND request_id IS NULL AND message_id IS NULL) OR
+        (inject_id IS NULL AND request_id IS NOT NULL AND message_id IS NULL) OR
+        (inject_id IS NULL AND request_id IS NULL AND message_id IS NOT NULL)
     )
 );
 
@@ -78,6 +80,9 @@ CREATE INDEX IF NOT EXISTS idx_attachments_inject
 
 CREATE INDEX IF NOT EXISTS idx_attachments_request
     ON attachments(request_id) WHERE request_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_attachments_message
+    ON attachments(message_id) WHERE message_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS bot_heartbeat (
     id         INTEGER PRIMARY KEY CHECK(id = 1),
